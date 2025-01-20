@@ -14,7 +14,7 @@ Yes, that's it. It's a early work in progress package.
 let bigQuery = try await BigQuery()
 Task { bigQuery.run() }
 
-struct Row {
+struct Row: Decodable {
 
     let someField: String
 }
