@@ -89,10 +89,6 @@ extension Query: ExpressibleByStringInterpolation {
       description.append(String(describing: literal))
     }
 
-    public mutating func appendInterpolation(_ value: StaticString) {
-      description.append(String(describing: value))
-    }
-
     public mutating func appendInterpolation(unsafe value: String) {
       description.append(value)
     }
