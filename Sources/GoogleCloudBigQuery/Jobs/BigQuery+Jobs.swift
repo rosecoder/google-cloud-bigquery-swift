@@ -73,7 +73,7 @@ extension BigQuery {
   ///   - query: The SQL query to execute
   ///   - location: The geographic location where the job should run. For more information: https://cloud.google.com/bigquery/docs/locations#specify_locations
   /// - Returns: A `QueryResultMeta` containing the metadata.
-  public func query(
+  @discardableResult public func query(
     _ query: Query,
     location: String?,
     file: String = #fileID,
@@ -100,7 +100,7 @@ extension BigQuery {
   /// - Parameters:
   ///   - query: The SQL query to execute
   /// - Returns: A `QueryResultMeta` containing the metadata.
-  public func query(
+  @discardableResult public func query(
     _ query: Query,
     file: String = #fileID,
     function: String = #function,
