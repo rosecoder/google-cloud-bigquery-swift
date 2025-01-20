@@ -134,6 +134,21 @@ extension BigQuery {
             method: .POST, path: "/queries",
             body: Google_Cloud_Bigquery_V2_QueryRequest.with {
               $0.query = query.sql
+              if !query.parameters.isEmpty {
+                $0.parameterMode = "POSITIONAL"
+                $0.queryParameters = query.parameters.map { parameter in
+                  .with {
+                    $0.parameterType = .with {
+                      $0.type = parameter.type
+                    }
+                    $0.parameterValue = .with {
+                      $0.value = .with {
+                        $0.value = parameter.value
+                      }
+                    }
+                  }
+                }
+              }
               if let maxResults = query.maxResults {
                 $0.maxResults = .with {
                   $0.value = maxResults
