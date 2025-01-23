@@ -31,10 +31,15 @@ final class IntegrationTests {
 
             let message: String
             let int: Int
+            let list: [Object]
+        }
+
+        struct Object: Decodable, Equatable {
+            let property: String
         }
 
         let result = try await bigQuery.query(
-            "SELECT \"Hello, World!\" AS message, 1 AS int",
+            "SELECT \"Hello, World!\" AS message, 1 AS int, [STRUCT('value' AS property)] AS list",
             as: Row.self
         )
         #expect(result.rows.count == 1)
@@ -44,6 +49,7 @@ final class IntegrationTests {
         let row = try #require(result.rows.first)
         #expect(row.message == "Hello, World!")
         #expect(row.int == 1)
+        #expect(row.list == [Object(property: "value")])
     }
 
     @Test func shouldQueryAndReturnRowsWithParameters() async throws {

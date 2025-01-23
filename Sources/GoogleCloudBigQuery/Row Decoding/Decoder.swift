@@ -18,17 +18,9 @@ struct RowDecoder {
       )
     }
 
-    // Unwrap each value from common field "v"
-    values = try values.map {
-      guard let value = $0.structValue.fields["v"] else {
-        throw DecodingError.dataCorrupted(
-          DecodingError.Context(
-            codingPath: [],
-            debugDescription: "Missing field value"
-          )
-        )
-      }
-      return value
+    // Unwrap each value from common field "v" recursively
+    values = try values.enumerated().map { index, value in
+      try unwrapValue(value, schema: schema.fields[index])
     }
 
     // TODO: Performance: Skip this step so we don't store field names in memory duplicated so many times
@@ -41,6 +33,54 @@ struct RowDecoder {
     )
 
     return try Row.init(from: _Decoder(raw: fields))
+  }
+
+  private func unwrapValue(
+    _ value: Google_Protobuf_Value,
+    schema: Google_Cloud_Bigquery_V2_TableFieldSchema
+  ) throws -> Google_Protobuf_Value {
+    guard let unwrapped = value.structValue.fields["v"] else {
+      throw DecodingError.dataCorrupted(
+        DecodingError.Context(
+          codingPath: [],
+          debugDescription: "Missing field value"
+        )
+      )
+    }
+
+    // Recursively unwrap nested structures
+    switch unwrapped.kind {
+    case .structValue(let structValue):
+      if let nestedList = structValue.fields["f"]?.listValue {
+        let unwrappedValues = try nestedList.values.enumerated().map { index, value in
+          try unwrapValue(value, schema: schema.fields[index])
+        }
+        var result = Google_Protobuf_Value()
+        var resultStruct = Google_Protobuf_Struct()
+        let fields = Dictionary(
+          uniqueKeysWithValues: zip(
+            schema.fields.map { $0.name },
+            unwrappedValues
+          )
+        )
+        resultStruct.fields = fields
+        result.structValue = resultStruct
+        return result
+      }
+      return unwrapped
+    case .listValue(let list):
+      var result = Google_Protobuf_Value()
+      result.listValue.values = try list.values.map { value in
+        if case .structValue = value.kind {
+          return try unwrapValue(value, schema: schema)
+        } else {
+          return value
+        }
+      }
+      return result
+    default:
+      return unwrapped
+    }
   }
 
   private struct _Decoder: Swift.Decoder {
