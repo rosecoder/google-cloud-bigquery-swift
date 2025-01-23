@@ -200,9 +200,7 @@ extension BigQuery {
     case .array(_, let elementType):
       return .with {
         $0.type = "ARRAY"
-        $0.arrayType = .with {
-          $0.type = elementType
-        }
+        $0.arrayType = encode(parameterType: elementType)
       }
     case .struct(let values):
       return .with {

@@ -58,9 +58,9 @@ extension Query {
       self.value = value
     }
 
-    public enum Value: Sendable, Equatable {
+    public indirect enum Value: Sendable, Equatable {
       case flat(String, type: String)
-      case array([Value], elementType: String)
+      case array([Value], elementType: Value)
       case `struct`([String: Value])
     }
   }

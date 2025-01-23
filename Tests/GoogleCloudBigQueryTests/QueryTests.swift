@@ -295,7 +295,7 @@ import Testing
                     [
                         .flat("1", type: "INT64"), .flat("2", type: "INT64"),
                         .flat("3", type: "INT64"),
-                    ], elementType: "INT64")
+                    ], elementType: .flat("", type: "INT64"))
         )
     }
 
@@ -303,7 +303,7 @@ import Testing
         let query: Query = try "SELECT \([] as [Int])"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first?.value == .array([], elementType: "INT64"))
+        #expect(query.parameters.first?.value == .array([], elementType: .flat("", type: "INT64")))
     }
 
     @Test func shouldInitializeFromInterpolationWithEncodableAsStructWithEmptyArray() throws {
@@ -317,7 +317,8 @@ import Testing
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
         #expect(
-            query.parameters.first?.value == .struct(["children": .array([], elementType: "BOOL")]))
+            query.parameters.first?.value
+                == .struct(["children": .array([], elementType: .flat("", type: "BOOL"))]))
     }
 
     @Test func shouldInitializeFromInterpolationWithEncodableWithManyLevels() throws {
@@ -354,7 +355,7 @@ import Testing
                         [
                             .struct(["prop": .flat("1", type: "INT64")]),
                             .struct(["prop": .flat("2", type: "INT64")]),
-                        ], elementType: "STRUCT"),
+                        ], elementType: .struct(["prop": .flat("", type: "INT64")])),
                     "child": .struct(["prop": .flat("3", type: "INT64")]),
                 ])
         )

@@ -59,7 +59,7 @@ extension Query.StringInterpolation {
 
     case .array(let array, let elementType):
       let values = try array.map(map)
-      let resolvedElementType: String
+      let resolvedElementType: Query.Parameter.Value
       if let elementType {
         resolvedElementType = elementType
       } else {
@@ -73,11 +73,11 @@ extension Query.StringInterpolation {
         }
         switch any.value {
         case .flat(_, let type):
-          resolvedElementType = type
-        case .array:
-          resolvedElementType = "ARRAY"
-        case .struct:
-          resolvedElementType = "STRUCT"
+          resolvedElementType = .flat("", type: type)
+        case .array(_, let elementType):
+          resolvedElementType = elementType
+        case .struct(let values):
+          resolvedElementType = .struct(values)
         }
       }
       return .init(
@@ -114,7 +114,7 @@ private struct QueryEncoder: Swift.Encoder {
     enum Value {
       case actual(Query.Parameter.Value)
 
-      case array([Buffer], type: String?)
+      case array([Buffer], type: Query.Parameter.Value?)
       case `struct`([String: Buffer])
       case buffer(Buffer)
     }
@@ -137,7 +137,7 @@ private struct QueryEncoder: Swift.Encoder {
     UnkeyedContainer(
       codingPath: codingPath,
       buffer: buffer,
-      elementType: elementType
+      elementType: elementType.map { .flat("", type: $0) }
     )
   }
 
@@ -359,7 +359,7 @@ private struct QueryEncoder: Swift.Encoder {
 
     var codingPath: [CodingKey]
     let buffer: QueryEncoder.Buffer
-    let elementType: String?
+    let elementType: Query.Parameter.Value?
 
     var currentIndex: Int = -1
 
@@ -367,7 +367,7 @@ private struct QueryEncoder: Swift.Encoder {
       currentIndex + 1
     }
 
-    init(codingPath: [CodingKey], buffer: Buffer, elementType: String?) {
+    init(codingPath: [CodingKey], buffer: Buffer, elementType: Query.Parameter.Value?) {
       self.codingPath = codingPath
       self.buffer = buffer
       self.elementType = elementType
@@ -378,8 +378,8 @@ private struct QueryEncoder: Swift.Encoder {
       switch buffer.value {
       case .array(var values, let elementType):
         let typeOfValue = type(of: value)
-        if let any = values.first {
-          let isSameType = type(of: any) == typeOfValue
+        if let typeOfValue, let any = values.first, let typeOfAny = type(of: any) {
+          let isSameType = compareTypes(lhs: typeOfAny, rhs: typeOfValue)
           if !isSameType {
             throw EncodingError.invalidValue(
               value,
@@ -398,23 +398,36 @@ private struct QueryEncoder: Swift.Encoder {
       currentIndex += 1
     }
 
-    private func type(of buffer: Buffer) -> String? {
+    private func type(of buffer: Buffer) -> Query.Parameter.Value? {
       switch buffer.value {
       case .actual(let value):
         switch value {
         case .flat(_, let type):
-          return type
-        case .array:
-          return "ARRAY"
-        case .struct:
-          return "STRUCT"
+          return .flat("", type: type)
+        case .array(_, let elementType):
+          return elementType
+        case .struct(let values):
+          return .struct(values)
         }
-      case .array:
-        return "ARRAY"
-      case .struct:
-        return "STRUCT"
+      case .array(_, let elementType):
+        return elementType
+      case .struct(let values):
+        return .struct(values.compactMapValues { type(of: $0) })
       case .buffer(let childBuffer):
         return type(of: childBuffer)
+      }
+    }
+
+    private func compareTypes(lhs: Query.Parameter.Value, rhs: Query.Parameter.Value) -> Bool {
+      switch (lhs, rhs) {
+      case (.flat(_, let lhsType), .flat(_, let rhsType)):
+        return lhsType == rhsType
+      case (.array(_, let lhsElementType), .array(_, let rhsElementType)):
+        return compareTypes(lhs: lhsElementType, rhs: rhsElementType)
+      case (.struct, .struct):
+        return true  // TODO: Can we compare structs?
+      default:
+        return false
       }
     }
 
