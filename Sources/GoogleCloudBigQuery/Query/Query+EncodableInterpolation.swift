@@ -148,7 +148,7 @@ private struct QueryEncoder: Swift.Encoder {
   struct SingleValueContainer: SingleValueEncodingContainer {
 
     let codingPath: [any CodingKey]
-    private(set) var buffer: QueryEncoder.Buffer
+    let buffer: QueryEncoder.Buffer
 
     mutating func encodeNil() throws {
       buffer.value = .actual(.flat("NULL", type: "STRING"))
@@ -220,7 +220,7 @@ private struct QueryEncoder: Swift.Encoder {
 
       let encoder = QueryEncoder(codingPath: codingPath, elementType: nil)
       try value.encode(to: encoder)
-      buffer = encoder.buffer
+      buffer.value = encoder.buffer.value
     }
   }
 
