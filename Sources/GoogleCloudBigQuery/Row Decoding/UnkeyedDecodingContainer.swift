@@ -1,10 +1,15 @@
 import SwiftProtobuf
 
+#if canImport(Foundation)
+  import Foundation
+#endif
+
 extension RowDecoder {
 
   struct UnkeyedContainer: UnkeyedDecodingContainer {
 
     let codingPath: [CodingKey]
+    let userInfo: [CodingUserInfoKey: Any]
     let values: [Google_Protobuf_Value]
 
     var currentIndex: Int = 0
@@ -31,6 +36,7 @@ extension RowDecoder {
         return KeyedDecodingContainer(
           KeyedContainer<NestedKey>(
             codingPath: codingPath + [IndexKey(currentIndex)],
+            userInfo: userInfo,
             fields: `struct`.fields
           ))
       default:
@@ -46,6 +52,7 @@ extension RowDecoder {
       case .listValue(let list):
         return UnkeyedContainer(
           codingPath: codingPath + [IndexKey(currentIndex)],
+          userInfo: userInfo,
           values: list.values
         )
       default:
@@ -63,68 +70,77 @@ extension RowDecoder {
 
     // MARK: - Decoding
 
+    private mutating func singleValueContainer() throws -> SingleValueContainer {
+      let field = nextValue()
+      return SingleValueContainer(
+        codingPath: codingPath + [IndexKey(currentIndex)],
+        userInfo: userInfo,
+        raw: field
+      )
+    }
+
     mutating func decodeNil() throws -> Bool {
-      SingleValueContainer(codingPath: codingPath, raw: nextValue()).decodeNil()
+      try singleValueContainer().decodeNil()
     }
 
     mutating func decode(_ type: Bool.Type) throws -> Bool {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(Bool.self)
+      try singleValueContainer().decode(Bool.self)
     }
 
     mutating func decode(_ type: String.Type) throws -> String {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(String.self)
+      try singleValueContainer().decode(String.self)
     }
 
     mutating func decode(_ type: Double.Type) throws -> Double {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(Double.self)
+      try singleValueContainer().decode(Double.self)
     }
 
     mutating func decode(_ type: Float.Type) throws -> Float {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(Float.self)
+      try singleValueContainer().decode(Float.self)
     }
 
     mutating func decode(_ type: Int.Type) throws -> Int {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(Int.self)
+      try singleValueContainer().decode(Int.self)
     }
 
     mutating func decode(_ type: Int8.Type) throws -> Int8 {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(Int8.self)
+      try singleValueContainer().decode(Int8.self)
     }
 
     mutating func decode(_ type: Int16.Type) throws -> Int16 {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(Int16.self)
+      try singleValueContainer().decode(Int16.self)
     }
 
     mutating func decode(_ type: Int32.Type) throws -> Int32 {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(Int32.self)
+      try singleValueContainer().decode(Int32.self)
     }
 
     mutating func decode(_ type: Int64.Type) throws -> Int64 {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(Int64.self)
+      try singleValueContainer().decode(Int64.self)
     }
 
     mutating func decode(_ type: UInt.Type) throws -> UInt {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(UInt.self)
+      try singleValueContainer().decode(UInt.self)
     }
 
     mutating func decode(_ type: UInt8.Type) throws -> UInt8 {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(UInt8.self)
+      try singleValueContainer().decode(UInt8.self)
     }
 
     mutating func decode(_ type: UInt16.Type) throws -> UInt16 {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(UInt16.self)
+      try singleValueContainer().decode(UInt16.self)
     }
 
     mutating func decode(_ type: UInt32.Type) throws -> UInt32 {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(UInt32.self)
+      try singleValueContainer().decode(UInt32.self)
     }
 
     mutating func decode(_ type: UInt64.Type) throws -> UInt64 {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(UInt64.self)
+      try singleValueContainer().decode(UInt64.self)
     }
 
     mutating func decode<T>(_ type: T.Type) throws -> T where T: Decodable {
-      try SingleValueContainer(codingPath: codingPath, raw: nextValue()).decode(T.self)
+      try singleValueContainer().decode(T.self)
     }
   }
 }

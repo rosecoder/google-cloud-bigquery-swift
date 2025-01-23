@@ -2,6 +2,15 @@ import SwiftProtobuf
 
 #if canImport(Foundation)
   import struct Foundation.Date
+  import class Foundation.DateFormatter
+  import struct Foundation.TimeZone
+
+  private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS 'UTC'"
+    formatter.timeZone = TimeZone(identifier: "UTC")
+    return formatter
+  }()
 #endif
 
 extension RowDecoder {
@@ -9,7 +18,7 @@ extension RowDecoder {
   struct SingleValueContainer: SingleValueDecodingContainer, Swift.Decoder {
 
     let codingPath: [CodingKey]
-    let userInfo: [CodingUserInfoKey: Any] = [:]
+    let userInfo: [CodingUserInfoKey: Any]
 
     // MARK: - SingleValueDecodingContainer
 
@@ -122,6 +131,19 @@ extension RowDecoder {
           switch kind {
           case .numberValue(let value):
             return Date(timeIntervalSince1970: value) as! T
+          case .stringValue(let value):
+            if let timestamp = Double(value) {
+              return Date(timeIntervalSince1970: timestamp) as! T
+            }
+            if let date = dateFormatter.date(from: value) {
+              return date as! T
+            }
+            throw EncodingError.invalidValue(
+              value,
+              EncodingError.Context(
+                codingPath: codingPath,
+                debugDescription: "Invalid date format"
+              ))
           default:
             throw UndecodableTypeError(codingPath: codingPath, expectedKind: kind)
           }
@@ -140,6 +162,7 @@ extension RowDecoder {
         return KeyedDecodingContainer(
           KeyedContainer<Key>(
             codingPath: codingPath,
+            userInfo: userInfo,
             fields: `struct`.fields
           ))
       default:
@@ -152,6 +175,7 @@ extension RowDecoder {
       case .listValue(let list):
         return UnkeyedContainer(
           codingPath: codingPath,
+          userInfo: userInfo,
           values: list.values
         )
       default:

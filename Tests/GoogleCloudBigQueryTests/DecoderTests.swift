@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import GoogleCloudBigQuery
@@ -16,6 +17,7 @@ import Testing
             let bool: Bool
             let object: Object
             let list: [String]
+            let date: Date
 
             struct Object: Decodable {
 
@@ -119,6 +121,18 @@ import Testing
                                     }
                                 )
                             },
+                            .with {
+                                $0.kind = .structValue(
+                                    .with {
+                                        $0.fields = [
+                                            "v": .with {
+                                                $0.kind = .stringValue(
+                                                    "2025-02-01 12:45:30.123456 UTC"
+                                                )
+                                            }
+                                        ]
+                                    })
+                            },
                         ]
                     }
                 ]
@@ -133,6 +147,7 @@ import Testing
                     .with { $0.name = "bool" },
                     .with { $0.name = "object" },
                     .with { $0.name = "list" },
+                    .with { $0.name = "date" },
                 ]
             }
         )
@@ -145,6 +160,7 @@ import Testing
         #expect(row.bool == true)
         #expect(row.object.property == "value")
         #expect(row.list == ["something"])
+        #expect(row.date.timeIntervalSince1970 == 1738413930.123)
     }
 
     // TODO: Add more tests

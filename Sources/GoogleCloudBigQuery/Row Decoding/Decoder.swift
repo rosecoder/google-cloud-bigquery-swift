@@ -95,6 +95,7 @@ struct RowDecoder {
       KeyedDecodingContainer(
         KeyedContainer<Key>(
           codingPath: codingPath,
+          userInfo: userInfo,
           fields: raw
         ))
     }

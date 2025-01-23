@@ -1,4 +1,27 @@
+#if canImport(Foundation)
+  import struct Foundation.Date
+  import class Foundation.DateFormatter
+  import struct Foundation.TimeZone
+
+  private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS 'UTC'"
+    formatter.timeZone = TimeZone(identifier: "UTC")
+    return formatter
+  }()
+#endif
+
 extension Query.StringInterpolation {
+
+  public mutating func appendInterpolation(_ value: Date) {
+    description.append("?")
+    parameters.append(.init(type: "TIMESTAMP", value: dateFormatter.string(from: value)))
+  }
+
+  public mutating func appendInterpolation(_ value: Date?) {
+    description.append("?")
+    parameters.append(.init(type: "TIMESTAMP", value: value.map(dateFormatter.string) ?? "NULL"))
+  }
 
   public mutating func appendInterpolation(_ value: some Encodable) throws {
     description.append("?")
@@ -188,6 +211,13 @@ private struct QueryEncoder: Swift.Encoder {
     }
 
     mutating func encode<T>(_ value: T) throws where T: Encodable {
+      #if canImport(Foundation)
+        if let date = value as? Date {
+          buffer.value = .actual(.flat(dateFormatter.string(from: date), type: "TIMESTAMP"))
+          return
+        }
+      #endif
+
       let encoder = QueryEncoder(codingPath: codingPath, elementType: nil)
       try value.encode(to: encoder)
       buffer = encoder.buffer
@@ -306,6 +336,16 @@ private struct QueryEncoder: Swift.Encoder {
     }
 
     mutating func encode<T>(_ value: T, forKey key: Key) throws where T: Encodable {
+      #if canImport(Foundation)
+        if let date = value as? Date {
+          write(
+            value: Buffer(
+              value: .actual(.flat(dateFormatter.string(from: date), type: "TIMESTAMP"))),
+            forKey: key)
+          return
+        }
+      #endif
+
       let encoder = QueryEncoder(
         codingPath: codingPath + [key],
         elementType: bigQueryTypeFromContainingArrayElement(arrayType: T.self)
@@ -466,6 +506,15 @@ private struct QueryEncoder: Swift.Encoder {
     }
 
     mutating func encode<T>(_ value: T) throws where T: Encodable {
+      #if canImport(Foundation)
+        if let date = value as? Date {
+          try write(
+            value: Buffer(
+              value: .actual(.flat(dateFormatter.string(from: date), type: "TIMESTAMP"))))
+          return
+        }
+      #endif
+
       let encoder = QueryEncoder(codingPath: codingPath, elementType: nil)
       try value.encode(to: encoder)
       try write(value: encoder.buffer)

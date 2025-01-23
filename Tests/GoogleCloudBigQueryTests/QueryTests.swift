@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import GoogleCloudBigQuery
@@ -357,5 +358,22 @@ import Testing
                     "child": .struct(["prop": .flat("3", type: "INT64")]),
                 ])
         )
+    }
+
+    @Test func shouldInitializeFromInterpolationWithTypeDate() throws {
+        let query: Query = "SELECT \(Date(timeIntervalSince1970: 888_814_502))"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(
+            query.parameters.first?.value
+                == .flat("1998-03-02 04:55:02.000000 UTC", type: "TIMESTAMP")
+        )
+    }
+
+    @Test func shouldInitializeFromInterpolationWithTypeDateNil() throws {
+        let query: Query = "SELECT \(nil as Date?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "TIMESTAMP"))
     }
 }

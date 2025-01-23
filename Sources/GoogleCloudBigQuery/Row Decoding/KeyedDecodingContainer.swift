@@ -5,6 +5,7 @@ extension RowDecoder {
   struct KeyedContainer<Key>: KeyedDecodingContainerProtocol where Key: CodingKey {
 
     let codingPath: [CodingKey]
+    let userInfo: [CodingUserInfoKey: Any]
     let fields: [String: Google_Protobuf_Value]
 
     // MARK: - Nested containers
@@ -18,6 +19,7 @@ extension RowDecoder {
         return KeyedDecodingContainer(
           KeyedContainer<NestedKey>(
             codingPath: codingPath + [key],
+            userInfo: userInfo,
             fields: `struct`.fields
           ))
       default:
@@ -31,6 +33,7 @@ extension RowDecoder {
       case .listValue(let list):
         return UnkeyedContainer(
           codingPath: codingPath + [key],
+          userInfo: userInfo,
           values: list.values
         )
       default:
@@ -61,6 +64,7 @@ extension RowDecoder {
     private func singleValueContainer(forKey key: Key) throws -> SingleValueContainer {
       SingleValueContainer(
         codingPath: codingPath + [key],
+        userInfo: userInfo,
         raw: fields[key.stringValue]
       )
     }
