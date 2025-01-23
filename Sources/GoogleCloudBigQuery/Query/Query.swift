@@ -43,13 +43,26 @@ public struct Query: Sendable {
 extension Query {
 
   /// A query parameter.
-  public struct Parameter: Sendable {
-
-    /// The type of the parameter. See data types: https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
-    public var type: String
+  ///
+  /// See data types: https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types. Note that struct and array needs generics specified: https://cloud.google.com/bigquery/docs/parameterized-queries#using_structs_in_parameterized_queries
+  public struct Parameter: Sendable, Equatable {
 
     /// The value of the parameter casted to a string.
-    public var value: String
+    public var value: Value
+
+    public init(type: String, value: String) {
+      self.value = .flat(value, type: type)
+    }
+
+    public init(type: String, value: Value) {
+      self.value = value
+    }
+
+    public enum Value: Sendable, Equatable {
+      case flat(String, type: String)
+      case array([Value], elementType: String)
+      case `struct`([String: Value])
+    }
   }
 }
 

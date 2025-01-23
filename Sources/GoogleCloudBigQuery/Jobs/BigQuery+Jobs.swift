@@ -136,18 +136,7 @@ extension BigQuery {
               $0.query = query.sql
               if !query.parameters.isEmpty {
                 $0.parameterMode = "POSITIONAL"
-                $0.queryParameters = query.parameters.map { parameter in
-                  .with {
-                    $0.parameterType = .with {
-                      $0.type = parameter.type
-                    }
-                    $0.parameterValue = .with {
-                      $0.value = .with {
-                        $0.value = parameter.value
-                      }
-                    }
-                  }
-                }
+                $0.queryParameters = query.parameters.map(encode)
               }
               if let maxResults = query.maxResults {
                 $0.maxResults = .with {
@@ -169,6 +158,62 @@ extension BigQuery {
         throw QueryError.jobNotYetComplete  // TODO: Maybe we should wait for it to finish?
       }
       return try map(response)
+    }
+  }
+
+  private func encode(parameter: Query.Parameter) -> Google_Cloud_Bigquery_V2_QueryParameter {
+    return .with {
+      $0.parameterType = encode(parameterType: parameter.value)
+      $0.parameterValue = encode(parameterValue: parameter.value)
+    }
+  }
+
+  private func encode(parameterValue value: Query.Parameter.Value)
+    -> Google_Cloud_Bigquery_V2_QueryParameterValue
+  {
+    switch value {
+    case .flat(let value, _):
+      return .with {
+        $0.value = .with {
+          $0.value = value
+        }
+      }
+    case .array(let values, _):
+      return .with {
+        $0.arrayValues = values.map(encode)
+      }
+    case .struct(let values):
+      return .with {
+        $0.structValues = values.mapValues(encode)
+      }
+    }
+  }
+
+  private func encode(parameterType value: Query.Parameter.Value)
+    -> Google_Cloud_Bigquery_V2_QueryParameterType
+  {
+    switch value {
+    case .flat(_, let type):
+      return .with {
+        $0.type = type
+      }
+    case .array(_, let elementType):
+      return .with {
+        $0.type = "ARRAY"
+        $0.arrayType = .with {
+          $0.type = elementType
+        }
+      }
+    case .struct(let values):
+      return .with {
+        $0.type = "STRUCT"
+        $0.structTypes = values.map { key, value in
+          .with {
+            $0.name = key
+            $0.type = encode(parameterType: value)
+          }
+        }
+      }
     }
   }
 }

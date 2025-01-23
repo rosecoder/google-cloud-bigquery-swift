@@ -53,10 +53,18 @@ final class IntegrationTests {
             let message: String
             let int: Int
             let bool: Bool
+            let someRecord: SomeRecord
+            let someArray: [Double]
+        }
+
+        struct SomeRecord: Codable {
+
+            let key: String
+            let value: Int
         }
 
         let result = try await bigQuery.query(
-            "SELECT \("Hello, World!") AS message, \(1) AS int, \(true) AS bool",
+            "SELECT \("Hello, World!") AS message, \(1) AS int, \(true) AS bool, \(SomeRecord(key: "someKey", value: 123)) AS someRecord, \([1.1, 1.2]) AS someArray",
             as: Row.self
         )
         #expect(result.rows.count == 1)
@@ -67,6 +75,9 @@ final class IntegrationTests {
         #expect(row.message == "Hello, World!")
         #expect(row.int == 1)
         #expect(row.bool == true)
+        #expect(row.someRecord.key == "someKey")
+        #expect(row.someRecord.value == 123)
+        #expect(row.someArray == [1.1, 1.2])
     }
 
     @Test func shouldQueryInsert() async throws {
