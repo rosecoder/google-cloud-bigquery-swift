@@ -62,11 +62,25 @@ import Testing
         #expect(query.parameters.first?.value == .flat("test", type: "STRING"))
     }
 
+    @Test func shouldInitializeFromInterpolationWithTypeStringNil() throws {
+        let query: Query = "SELECT \(nil as String?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "STRING"))
+    }
+
     @Test func shouldInitializeFromInterpolationWithTypeInt() throws {
         let query: Query = "SELECT \(1)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
         #expect(query.parameters.first?.value == .flat("1", type: "INT64"))
+    }
+
+    @Test func shouldInitializeFromInterpolationWithTypeIntNil() throws {
+        let query: Query = "SELECT \(nil as Int?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt8() throws {
@@ -77,12 +91,26 @@ import Testing
         #expect(query.parameters.first?.value == .flat("8", type: "INT64"))
     }
 
+    @Test func shouldInitializeFromInterpolationWithTypeInt8Nil() throws {
+        let query: Query = "SELECT \(nil as Int8?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
+    }
+
     @Test func shouldInitializeFromInterpolationWithTypeInt16() throws {
         let value: Int16 = 16
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
         #expect(query.parameters.first?.value == .flat("16", type: "INT64"))
+    }
+
+    @Test func shouldInitializeFromInterpolationWithTypeInt16Nil() throws {
+        let query: Query = "SELECT \(nil as Int16?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt32() throws {
@@ -93,12 +121,26 @@ import Testing
         #expect(query.parameters.first?.value == .flat("32", type: "INT64"))
     }
 
+    @Test func shouldInitializeFromInterpolationWithTypeInt32Nil() throws {
+        let query: Query = "SELECT \(nil as Int32?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
+    }
+
     @Test func shouldInitializeFromInterpolationWithTypeInt64() throws {
         let value: Int64 = 64
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
         #expect(query.parameters.first?.value == .flat("64", type: "INT64"))
+    }
+
+    @Test func shouldInitializeFromInterpolationWithTypeInt64Nil() throws {
+        let query: Query = "SELECT \(nil as Int64?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt() throws {
@@ -109,12 +151,26 @@ import Testing
         #expect(query.parameters.first?.value == .flat("1", type: "INT64"))
     }
 
+    @Test func shouldInitializeFromInterpolationWithTypeUIntNil() throws {
+        let query: Query = "SELECT \(nil as UInt?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
+    }
+
     @Test func shouldInitializeFromInterpolationWithTypeUInt8() throws {
         let value: UInt8 = 8
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
         #expect(query.parameters.first?.value == .flat("8", type: "INT64"))
+    }
+
+    @Test func shouldInitializeFromInterpolationWithTypeUInt8Nil() throws {
+        let query: Query = "SELECT \(nil as UInt8?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt16() throws {
@@ -125,12 +181,26 @@ import Testing
         #expect(query.parameters.first?.value == .flat("16", type: "INT64"))
     }
 
+    @Test func shouldInitializeFromInterpolationWithTypeUInt16Nil() throws {
+        let query: Query = "SELECT \(nil as UInt16?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
+    }
+
     @Test func shouldInitializeFromInterpolationWithTypeUInt32() throws {
         let value: UInt32 = 32
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
         #expect(query.parameters.first?.value == .flat("32", type: "INT64"))
+    }
+
+    @Test func shouldInitializeFromInterpolationWithTypeUInt32Nil() throws {
+        let query: Query = "SELECT \(nil as UInt32?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt64() throws {
@@ -141,12 +211,26 @@ import Testing
         #expect(query.parameters.first?.value == .flat("64", type: "INT64"))
     }
 
+    @Test func shouldInitializeFromInterpolationWithTypeUInt64Nil() throws {
+        let query: Query = "SELECT \(nil as UInt64?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "INT64"))
+    }
+
     @Test func shouldInitializeFromInterpolationWithTypeFloat() throws {
         let value: Float = 3.14
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
         #expect(query.parameters.first?.value == .flat("3.14", type: "FLOAT64"))
+    }
+
+    @Test func shouldInitializeFromInterpolationWithTypeFloatNil() throws {
+        let query: Query = "SELECT \(nil as Float?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "FLOAT64"))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeDouble() throws {
@@ -157,11 +241,25 @@ import Testing
         #expect(query.parameters.first?.value == .flat("3.14159", type: "FLOAT64"))
     }
 
+    @Test func shouldInitializeFromInterpolationWithTypeDoubleNil() throws {
+        let query: Query = "SELECT \(nil as Double?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "FLOAT64"))
+    }
+
     @Test func shouldInitializeFromInterpolationWithTypeBool() throws {
         let query: Query = "SELECT \(true)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
         #expect(query.parameters.first?.value == .flat("TRUE", type: "BOOL"))
+    }
+
+    @Test func shouldInitializeFromInterpolationWithTypeBoolNil() throws {
+        let query: Query = "SELECT \(nil as Bool?)"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(query.parameters.first?.value == .flat("NULL", type: "BOOL"))
     }
 
     @Test func shouldInitializeFromInterpolationWithEncodableAsStruct() throws {

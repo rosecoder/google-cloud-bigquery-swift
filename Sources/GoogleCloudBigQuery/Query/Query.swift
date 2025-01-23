@@ -106,74 +106,124 @@ extension Query: ExpressibleByStringInterpolation {
       description.append(value)
     }
 
+    // Note: We are providing a optional and non-optional version of each type to favor this over the `some Encoder` version
+    // which throws. This also fixes issue where we must know the type of nullable values which isn't possible using encodable.
+
     public mutating func appendInterpolation(_ value: String) {
-      description.append("?")
-      parameters.append(.init(type: "STRING", value: value))
+      append(value: value, type: "STRING")
+    }
+
+    public mutating func appendInterpolation(_ value: String?) {
+      append(value: value, type: "STRING")
     }
 
     public mutating func appendInterpolation(_ value: Int) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: Int?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: Int8) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: Int8?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: Int16) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: Int16?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: Int32) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: Int32?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: Int64) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: Int64?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: UInt) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: UInt?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: UInt8) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: UInt8?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: UInt16) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: UInt16?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: UInt32) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: UInt32?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: UInt64) {
-      description.append("?")
-      parameters.append(.init(type: "INT64", value: String(value)))
+      append(value: String(value), type: "INT64")
+    }
+
+    public mutating func appendInterpolation(_ value: UInt64?) {
+      append(value: value.map(String.init), type: "INT64")
     }
 
     public mutating func appendInterpolation(_ value: Float) {
-      description.append("?")
-      parameters.append(.init(type: "FLOAT64", value: String(value)))
+      append(value: String(value), type: "FLOAT64")
+    }
+
+    public mutating func appendInterpolation(_ value: Float?) {
+      append(value: value.map { String($0) }, type: "FLOAT64")
     }
 
     public mutating func appendInterpolation(_ value: Double) {
-      description.append("?")
-      parameters.append(.init(type: "FLOAT64", value: String(value)))
+      append(value: String(value), type: "FLOAT64")
+    }
+
+    public mutating func appendInterpolation(_ value: Double?) {
+      append(value: value.map { String($0) }, type: "FLOAT64")
     }
 
     public mutating func appendInterpolation(_ value: Bool) {
+      append(value: value ? "TRUE" : "FALSE", type: "BOOL")
+    }
+
+    public mutating func appendInterpolation(_ value: Bool?) {
+      append(value: value.map { $0 ? "TRUE" : "FALSE" }, type: "BOOL")
+    }
+
+    private mutating func append(value: String?, type: String) {
       description.append("?")
-      parameters.append(.init(type: "BOOL", value: value ? "TRUE" : "FALSE"))
+      parameters.append(.init(type: type, value: value ?? "NULL"))
     }
   }
 }
