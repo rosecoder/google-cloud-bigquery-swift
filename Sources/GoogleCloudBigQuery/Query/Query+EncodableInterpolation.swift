@@ -1,32 +1,29 @@
 #if canImport(Foundation)
   import struct Foundation.Date
-  import class Foundation.DateFormatter
-  import struct Foundation.TimeZone
-
-  private let dateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS 'UTC'"
-    formatter.timeZone = TimeZone(identifier: "UTC")
-    return formatter
-  }()
 #endif
 
 extension Query.StringInterpolation {
 
-  public mutating func appendInterpolation(_ value: Date) {
-    description.append("?")
-    parameters.append(.init(type: "TIMESTAMP", value: dateFormatter.string(from: value)))
-  }
+  #if canImport(Foundation)
+    public mutating func appendInterpolation(_ value: Date) {
+      description.append("?")
+      parameters.append(.init(value: value))
+    }
 
-  public mutating func appendInterpolation(_ value: Date?) {
-    description.append("?")
-    parameters.append(.init(type: "TIMESTAMP", value: value.map(dateFormatter.string) ?? "NULL"))
-  }
+    public mutating func appendInterpolation(_ value: Date?) {
+      description.append("?")
+      parameters.append(.init(value: value))
+    }
+  #endif
 
-  public mutating func appendInterpolation(_ value: some Encodable) throws {
+  public mutating func appendInterpolation<Element: Encodable>(_ value: Element) throws {
     description.append("?")
 
-    let encoder = QueryEncoder(codingPath: [], elementType: nil)
+    let encoder = QueryEncoder(
+      codingPath: [],
+      elementType: nil,
+      originalQueryEncodable: Element.self as? QueryEncodable.Type
+    )
     try value.encode(to: encoder)
     parameters.append(try map(buffer: encoder.buffer))
   }
@@ -36,7 +33,8 @@ extension Query.StringInterpolation {
 
     let encoder = QueryEncoder(
       codingPath: [],
-      elementType: bigQueryTypeFromContainingArrayElement(arrayType: [Element].self)
+      elementType: bigQueryTypeFromContainingArrayElement(arrayType: [Element].self),
+      originalQueryEncodable: [Element].self as? QueryEncodable.Type
     )
     try value.encode(to: encoder)
     parameters.append(try map(buffer: encoder.buffer))
@@ -45,25 +43,17 @@ extension Query.StringInterpolation {
   private func map(buffer: QueryEncoder.Buffer) throws -> Query.Parameter {
     switch buffer.value {
     case .actual(let value):
-      switch value {
-      case .flat(let value, let type):
-        return .init(type: type, value: value)
-      case .array(let values, let elementType):
-        return .init(type: "ARRAY", value: .array(values, elementType: elementType))
-      case .struct(let values):
-        return .init(type: "STRUCT", value: .struct(values))
-      }
+      return value
 
     case .buffer(let childBuffer):
       return try map(buffer: childBuffer)
 
     case .array(let array, let elementType):
-      let values = try array.map(map)
-      let resolvedElementType: Query.Parameter.Value
+      let resolvedElementType: BigQueryType
       if let elementType {
         resolvedElementType = elementType
       } else {
-        guard let any = values.first else {
+        guard let anyElement = array.first else {
           throw EncodingError.invalidValue(
             buffer,
             EncodingError.Context(
@@ -71,24 +61,25 @@ extension Query.StringInterpolation {
               debugDescription: "Unable to infer element type of array"
             ))
         }
-        switch any.value {
-        case .flat(_, let type):
-          resolvedElementType = .flat("", type: type)
-        case .array(_, let elementType):
-          resolvedElementType = elementType
-        case .struct(let values):
-          resolvedElementType = .struct(values)
+        guard let anyElementType = anyElement.type else {
+          throw EncodingError.invalidValue(
+            buffer,
+            EncodingError.Context(
+              codingPath: [],  // TODO: Set somehow?
+              debugDescription: "Unable to infer element type of array"
+            ))
         }
+        resolvedElementType = anyElementType
       }
       return .init(
-        type: "ARRAY",
-        value: .array(values.map(\.value), elementType: resolvedElementType)
+        value: .array(try array.map({ try map(buffer: $0).value })),
+        type: .array(resolvedElementType)
       )
 
-    case .struct(let `struct`):
+    case .struct(let `struct`, let elementType):
       return .init(
-        type: "STRUCT",
-        value: .struct(try `struct`.mapValues({ try map(buffer: $0).value }))
+        value: .struct(try `struct`?.mapValues({ try map(buffer: $0).value })),
+        type: .struct(elementType)
       )
     }
   }
@@ -98,13 +89,19 @@ private struct QueryEncoder: Swift.Encoder {
 
   let codingPath: [any CodingKey]
   let userInfo = [CodingUserInfoKey: Any]()
-  let elementType: String?
+  let elementType: BigQueryType?
+  let originalQueryEncodable: QueryEncodable.Type?
 
   let buffer: QueryEncoder.Buffer = Buffer()
 
-  init(codingPath: [any CodingKey], elementType: String?) {
+  init(
+    codingPath: [any CodingKey],
+    elementType: BigQueryType?,
+    originalQueryEncodable: QueryEncodable.Type?
+  ) {
     self.codingPath = codingPath
     self.elementType = elementType
+    self.originalQueryEncodable = originalQueryEncodable
   }
 
   final class Buffer {
@@ -112,19 +109,38 @@ private struct QueryEncoder: Swift.Encoder {
     var value: Value
 
     enum Value {
-      case actual(Query.Parameter.Value)
+      case actual(Query.Parameter)
 
-      case array([Buffer], type: Query.Parameter.Value?)
-      case `struct`([String: Buffer])
+      case array([Buffer], type: BigQueryType?)
+      case `struct`([String: Buffer]?, type: [String: BigQueryType])
       case buffer(Buffer)
     }
 
     init() {
-      self.value = .actual(.flat("NULL", type: "ERR"))
+      self.value = .actual(.init(value: nil, type: .string))  // TODO: Throw somewhere if this is never overwritten?
     }
 
     init(value: Value) {
       self.value = value
+    }
+
+    var type: BigQueryType? {
+      switch value {
+      case .actual(let value):
+        return value.type
+      case .array(let values, let elementType):
+        if let elementType {
+          return .array(elementType)
+        }
+        if let any = values.first {
+          return any.type
+        }
+        return nil  // Unable to resolve type yet, because the array is empty. This will throw an error later in the encoding process if not resolved.
+      case .struct(_, let elementType):
+        return .struct(elementType)
+      case .buffer(let childBuffer):
+        return childBuffer.type
+      }
     }
   }
 
@@ -137,88 +153,108 @@ private struct QueryEncoder: Swift.Encoder {
     UnkeyedContainer(
       codingPath: codingPath,
       buffer: buffer,
-      elementType: elementType.map { .flat("", type: $0) }
+      elementType: elementType
     )
   }
 
   func singleValueContainer() -> any SingleValueEncodingContainer {
-    SingleValueContainer(codingPath: codingPath, buffer: buffer)
+    SingleValueContainer(
+      codingPath: codingPath,
+      buffer: buffer,
+      originalQueryEncodable: originalQueryEncodable
+    )
   }
 
   struct SingleValueContainer: SingleValueEncodingContainer {
 
     let codingPath: [any CodingKey]
     let buffer: QueryEncoder.Buffer
+    let originalQueryEncodable: QueryEncodable.Type?
 
     mutating func encodeNil() throws {
-      buffer.value = .actual(.flat("NULL", type: "STRING"))
+      if let originalQueryEncodable {
+        buffer.value = .actual(originalQueryEncodable.bigQueryType.nullValue)
+        return
+      }
+      throw EncodingError.invalidValue(
+        buffer,
+        EncodingError.Context(
+          codingPath: codingPath,
+          debugDescription:
+            "Cannot encode nil value due to the type is unknown. Please add conformance to `QueryEncodable` to the type."
+        )
+      )
     }
 
     mutating func encode(_ value: Bool) throws {
-      buffer.value = .actual(.flat(value ? "TRUE" : "FALSE", type: "BOOL"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: String) throws {
-      buffer.value = .actual(.flat(value, type: "STRING"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: Double) throws {
-      buffer.value = .actual(.flat(String(value), type: "FLOAT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: Float) throws {
-      buffer.value = .actual(.flat(String(value), type: "FLOAT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: Int) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: Int8) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: Int16) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: Int32) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: Int64) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: UInt) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: UInt8) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: UInt16) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: UInt32) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode(_ value: UInt64) throws {
-      buffer.value = .actual(.flat(String(value), type: "INT64"))
+      buffer.value = .actual(.init(value: value))
     }
 
     mutating func encode<T>(_ value: T) throws where T: Encodable {
       #if canImport(Foundation)
         if let date = value as? Date {
-          buffer.value = .actual(.flat(dateFormatter.string(from: date), type: "TIMESTAMP"))
+          buffer.value = .actual(.init(value: date))
           return
         }
       #endif
 
-      let encoder = QueryEncoder(codingPath: codingPath, elementType: nil)
+      let encoder = QueryEncoder(
+        codingPath: codingPath,
+        elementType: nil,
+        originalQueryEncodable: T.self as? QueryEncodable.Type
+      )
       try value.encode(to: encoder)
       buffer.value = encoder.buffer.value
     }
@@ -232,22 +268,34 @@ private struct QueryEncoder: Swift.Encoder {
     init(codingPath: [CodingKey], buffer: Buffer) {
       self.codingPath = codingPath
       self.buffer = buffer
-      self.buffer.value = .struct([:])
+      self.buffer.value = .struct(nil, type: [:])
     }
 
     private func write(value: Buffer, forKey key: Key) {
       switch buffer.value {
-      case .struct(var values):
-        values[key.stringValue] = value
-        buffer.value = .struct(values)
+      case .struct(let values, var elementType):
+        if var values {
+          values[key.stringValue] = value
+          elementType[key.stringValue] = value.type
+          buffer.value = .struct(values, type: elementType)
+        } else {
+          elementType[key.stringValue] = value.type
+          buffer.value = .struct([key.stringValue: value], type: elementType)
+        }
       default:
         assertionFailure("Keyed container buffer was overwritten to non-struct value")
-        buffer.value = .struct([key.stringValue: value])
+        buffer.value = .struct([key.stringValue: value], type: [:])
       }
     }
 
-    mutating func encodeNil(forKey key: Key) {
-      write(value: Buffer(), forKey: key)
+    mutating func encodeNil(forKey key: Key) throws {
+      throw EncodingError.invalidValue(
+        buffer,
+        EncodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Cannot encode nil value due to the type is unknown"
+        )
+      )
     }
 
     mutating func nestedContainer<NestedKey>(keyedBy keyType: NestedKey.Type, forKey key: Key)
@@ -279,76 +327,73 @@ private struct QueryEncoder: Swift.Encoder {
     }
 
     func encode(_ value: Bool, forKey key: Key) throws {
-      write(
-        value: Buffer(value: .actual(.flat(value ? "TRUE" : "FALSE", type: "BOOL"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: String, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(value, type: "STRING"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: Double, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "FLOAT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: Float, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "FLOAT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: Int, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: Int8, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: Int16, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: Int32, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: Int64, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: UInt, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: UInt8, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: UInt16, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: UInt32, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode(_ value: UInt64, forKey key: Key) throws {
-      write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))), forKey: key)
+      write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
     mutating func encode<T>(_ value: T, forKey key: Key) throws where T: Encodable {
       #if canImport(Foundation)
         if let date = value as? Date {
-          write(
-            value: Buffer(
-              value: .actual(.flat(dateFormatter.string(from: date), type: "TIMESTAMP"))),
-            forKey: key)
+          write(value: Buffer(value: .actual(.init(value: date))), forKey: key)
           return
         }
       #endif
 
       let encoder = QueryEncoder(
         codingPath: codingPath + [key],
-        elementType: bigQueryTypeFromContainingArrayElement(arrayType: T.self)
+        elementType: bigQueryTypeFromContainingArrayElement(arrayType: T.self),
+        originalQueryEncodable: T.self as? QueryEncodable.Type
       )
       try value.encode(to: encoder)
       write(value: encoder.buffer, forKey: key)
@@ -359,7 +404,7 @@ private struct QueryEncoder: Swift.Encoder {
 
     var codingPath: [CodingKey]
     let buffer: QueryEncoder.Buffer
-    let elementType: Query.Parameter.Value?
+    let elementType: BigQueryType?
 
     var currentIndex: Int = -1
 
@@ -367,7 +412,7 @@ private struct QueryEncoder: Swift.Encoder {
       currentIndex + 1
     }
 
-    init(codingPath: [CodingKey], buffer: Buffer, elementType: Query.Parameter.Value?) {
+    init(codingPath: [CodingKey], buffer: Buffer, elementType: BigQueryType?) {
       self.codingPath = codingPath
       self.buffer = buffer
       self.elementType = elementType
@@ -377,15 +422,14 @@ private struct QueryEncoder: Swift.Encoder {
     private mutating func write(value: Buffer) throws {
       switch buffer.value {
       case .array(var values, let elementType):
-        let typeOfValue = type(of: value)
-        if let typeOfValue, let any = values.first, let typeOfAny = type(of: any) {
-          let isSameType = compareTypes(lhs: typeOfAny, rhs: typeOfValue)
-          if !isSameType {
+        let typeOfValue = value.type
+        if let typeOfValue, let any = values.first, let typeOfAny = any.type {
+          if typeOfAny != typeOfValue {
             throw EncodingError.invalidValue(
               value,
               EncodingError.Context(
                 codingPath: codingPath,
-                debugDescription: "All values must have the same type"
+                debugDescription: "All elements in array must have the same type"
               ))
           }
         }
@@ -398,41 +442,14 @@ private struct QueryEncoder: Swift.Encoder {
       currentIndex += 1
     }
 
-    private func type(of buffer: Buffer) -> Query.Parameter.Value? {
-      switch buffer.value {
-      case .actual(let value):
-        switch value {
-        case .flat(_, let type):
-          return .flat("", type: type)
-        case .array(_, let elementType):
-          return elementType
-        case .struct(let values):
-          return .struct(values)
-        }
-      case .array(_, let elementType):
-        return elementType
-      case .struct(let values):
-        return .struct(values.compactMapValues { type(of: $0) })
-      case .buffer(let childBuffer):
-        return type(of: childBuffer)
-      }
-    }
-
-    private func compareTypes(lhs: Query.Parameter.Value, rhs: Query.Parameter.Value) -> Bool {
-      switch (lhs, rhs) {
-      case (.flat(_, let lhsType), .flat(_, let rhsType)):
-        return lhsType == rhsType
-      case (.array(_, let lhsElementType), .array(_, let rhsElementType)):
-        return compareTypes(lhs: lhsElementType, rhs: rhsElementType)
-      case (.struct, .struct):
-        return true  // TODO: Can we compare structs?
-      default:
-        return false
-      }
-    }
-
     mutating func encodeNil() throws {
-      try write(value: Buffer())
+      throw EncodingError.invalidValue(
+        buffer,
+        EncodingError.Context(
+          codingPath: codingPath,
+          debugDescription: "Cannot encode nil value due to the type is unknown"
+        )
+      )
     }
 
     mutating func nestedContainer<NestedKey>(keyedBy keyType: NestedKey.Type)
@@ -463,72 +480,74 @@ private struct QueryEncoder: Swift.Encoder {
     }
 
     mutating func encode(_ value: Bool) throws {
-      try write(value: Buffer(value: .actual(.flat(value ? "TRUE" : "FALSE", type: "BOOL"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: String) throws {
-      try write(value: Buffer(value: .actual(.flat(value, type: "STRING"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: Double) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "FLOAT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: Float) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "FLOAT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: Int) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: Int8) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: Int16) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: Int32) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: Int64) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: UInt) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: UInt8) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: UInt16) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: UInt32) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode(_ value: UInt64) throws {
-      try write(value: Buffer(value: .actual(.flat(String(value), type: "INT64"))))
+      try write(value: Buffer(value: .actual(.init(value: value))))
     }
 
     mutating func encode<T>(_ value: T) throws where T: Encodable {
       #if canImport(Foundation)
         if let date = value as? Date {
-          try write(
-            value: Buffer(
-              value: .actual(.flat(dateFormatter.string(from: date), type: "TIMESTAMP"))))
+          try write(value: Buffer(value: .actual(.init(value: date))))
           return
         }
       #endif
 
-      let encoder = QueryEncoder(codingPath: codingPath, elementType: nil)
+      let encoder = QueryEncoder(
+        codingPath: codingPath,
+        elementType: nil,
+        originalQueryEncodable: T.self as? QueryEncodable.Type
+      )
       try value.encode(to: encoder)
       try write(value: encoder.buffer)
     }
@@ -537,48 +556,48 @@ private struct QueryEncoder: Swift.Encoder {
 
 private func bigQueryTypeFromContainingArrayElement<Element: Encodable>(
   arrayType type: Element.Type
-) -> String? {
+) -> BigQueryType? {
   if type == [Int].self {
-    return "INT64"
+    return .int64
   }
   if type == [Int8].self {
-    return "INT64"
+    return .int64
   }
   if type == [Int16].self {
-    return "INT64"
+    return .int64
   }
   if type == [Int32].self {
-    return "INT64"
+    return .int64
   }
   if type == [Int64].self {
-    return "INT64"
+    return .int64
   }
   if type == [UInt].self {
-    return "INT64"
+    return .int64
   }
   if type == [UInt8].self {
-    return "INT64"
+    return .int64
   }
   if type == [UInt16].self {
-    return "INT64"
+    return .int64
   }
   if type == [UInt32].self {
-    return "INT64"
+    return .int64
   }
   if type == [UInt64].self {
-    return "INT64"
+    return .int64
   }
   if type == [Float].self {
-    return "FLOAT64"
+    return .float64
   }
   if type == [Double].self {
-    return "FLOAT64"
+    return .float64
   }
   if type == [String].self {
-    return "STRING"
+    return .string
   }
   if type == [Bool].self {
-    return "BOOL"
+    return .bool
   }
   return nil
 }

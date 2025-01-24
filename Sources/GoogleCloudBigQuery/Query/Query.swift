@@ -1,3 +1,16 @@
+#if canImport(Foundation)
+  import struct Foundation.Date
+  import class Foundation.DateFormatter
+  import struct Foundation.TimeZone
+
+  private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS 'UTC'"
+    formatter.timeZone = TimeZone(identifier: "UTC")
+    return formatter
+  }()
+#endif
+
 /// A BigQuery SQL query.
 ///
 /// You can create a query directly from a string literal:
@@ -50,18 +63,84 @@ extension Query {
     /// The value of the parameter casted to a string.
     public var value: Value
 
-    public init(type: String, value: String) {
-      self.value = .flat(value, type: type)
+    public var type: BigQueryType
+
+    public init(value: Bool?) {
+      self.init(value: value.map { $0 ? "TRUE" : "FALSE" }, type: .bool)
     }
 
-    public init(type: String, value: Value) {
+    public init(value: String?) {
+      self.init(value: value, type: .string)
+    }
+
+    public init(value: Double?) {
+      self.init(value: value.map { String($0) }, type: .float64)
+    }
+
+    public init(value: Float?) {
+      self.init(value: value.map { String($0) }, type: .float64)
+    }
+
+    public init(value: Int?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    public init(value: Int8?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    public init(value: Int16?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    public init(value: Int32?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    public init(value: Int64?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    public init(value: UInt?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    public init(value: UInt8?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    public init(value: UInt16?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    public init(value: UInt32?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    public init(value: UInt64?) {
+      self.init(value: value.map { String($0) }, type: .int64)
+    }
+
+    #if canImport(Foundation)
+      public init(value: Date?) {
+        self.init(value: value.map { dateFormatter.string(from: $0) }, type: .timestamp)
+      }
+    #endif
+
+    public init(value: String?, type: BigQueryType) {
+      self.value = .string(value)
+      self.type = type
+    }
+
+    public init(value: Value, type: BigQueryType) {
       self.value = value
+      self.type = type
     }
 
     public indirect enum Value: Sendable, Equatable {
-      case flat(String, type: String)
-      case array([Value], elementType: Value)
-      case `struct`([String: Value])
+      case string(String?)
+      case array([Value])
+      case `struct`([String: Value]?)
     }
   }
 }
@@ -110,120 +189,120 @@ extension Query: ExpressibleByStringInterpolation {
     // which throws. This also fixes issue where we must know the type of nullable values which isn't possible using encodable.
 
     public mutating func appendInterpolation(_ value: String) {
-      append(value: value, type: "STRING")
+      append(value: value, type: .string)
     }
 
     public mutating func appendInterpolation(_ value: String?) {
-      append(value: value, type: "STRING")
+      append(value: value, type: .string)
     }
 
     public mutating func appendInterpolation(_ value: Int) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Int?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Int8) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Int8?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Int16) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Int16?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Int32) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Int32?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Int64) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Int64?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt8) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt8?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt16) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt16?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt32) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt32?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt64) {
-      append(value: String(value), type: "INT64")
+      append(value: String(value), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: UInt64?) {
-      append(value: value.map(String.init), type: "INT64")
+      append(value: value.map(String.init), type: .int64)
     }
 
     public mutating func appendInterpolation(_ value: Float) {
-      append(value: String(value), type: "FLOAT64")
+      append(value: String(value), type: .float64)
     }
 
     public mutating func appendInterpolation(_ value: Float?) {
-      append(value: value.map { String($0) }, type: "FLOAT64")
+      append(value: value.map { String($0) }, type: .float64)
     }
 
     public mutating func appendInterpolation(_ value: Double) {
-      append(value: String(value), type: "FLOAT64")
+      append(value: String(value), type: .float64)
     }
 
     public mutating func appendInterpolation(_ value: Double?) {
-      append(value: value.map { String($0) }, type: "FLOAT64")
+      append(value: value.map { String($0) }, type: .float64)
     }
 
     public mutating func appendInterpolation(_ value: Bool) {
-      append(value: value ? "TRUE" : "FALSE", type: "BOOL")
+      append(value: value ? "TRUE" : "FALSE", type: .bool)
     }
 
     public mutating func appendInterpolation(_ value: Bool?) {
-      append(value: value.map { $0 ? "TRUE" : "FALSE" }, type: "BOOL")
+      append(value: value.map { $0 ? "TRUE" : "FALSE" }, type: .bool)
     }
 
-    private mutating func append(value: String?, type: String) {
+    private mutating func append(value: String?, type: BigQueryType) {
       description.append("?")
-      parameters.append(.init(type: type, value: value ?? "NULL"))
+      parameters.append(.init(value: value, type: type))
     }
   }
 }

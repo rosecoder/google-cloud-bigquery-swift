@@ -163,7 +163,7 @@ extension BigQuery {
 
   private func encode(parameter: Query.Parameter) -> Google_Cloud_Bigquery_V2_QueryParameter {
     return .with {
-      $0.parameterType = encode(parameterType: parameter.value)
+      $0.parameterType = encode(parameterType: parameter.type)
       $0.parameterValue = encode(parameterValue: parameter.value)
     }
   }
@@ -172,45 +172,44 @@ extension BigQuery {
     -> Google_Cloud_Bigquery_V2_QueryParameterValue
   {
     switch value {
-    case .flat(let value, _):
+    case .string(let value):
       return .with {
-        $0.value = .with {
-          $0.value = value
+        if let value {
+          $0.value = .with {
+            $0.value = value
+          }
         }
       }
-    case .array(let values, _):
+    case .array(let values):
       return .with {
-        $0.arrayValues = values.map(encode)
+        $0.arrayValues = values.compactMap(encode)
       }
     case .struct(let values):
       return .with {
-        $0.structValues = values.mapValues(encode)
+        if let values {
+          $0.structValues = values.compactMapValues(encode)
+        }
       }
     }
   }
 
-  private func encode(parameterType value: Query.Parameter.Value)
+  private func encode(parameterType type: BigQueryType)
     -> Google_Cloud_Bigquery_V2_QueryParameterType
   {
-    switch value {
-    case .flat(_, let type):
-      return .with {
-        $0.type = type
-      }
-    case .array(_, let elementType):
-      return .with {
-        $0.type = "ARRAY"
+    return .with {
+      $0.type = type.stringRepresentation
+      switch type {
+      case .array(let elementType):
         $0.arrayType = encode(parameterType: elementType)
-      }
-    case .struct(let values):
-      return .with {
-        $0.type = "STRUCT"
-        $0.structTypes = values.map { key, value in
+      case .struct(let elementType):
+        $0.structTypes = elementType.map { key, value in
           .with {
             $0.name = key
             $0.type = encode(parameterType: value)
           }
         }
+      default:
+        break
       }
     }
   }
