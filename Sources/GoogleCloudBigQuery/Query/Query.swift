@@ -20,10 +20,7 @@
 ///
 /// Or construct it with parameters:
 /// ```swift
-/// let query = Query(
-///     sql: "SELECT * FROM `my-project.my_dataset.my_table` LIMIT @limit",
-///     maxResults: 100
-/// )
+/// let query: Query = "SELECT * FROM `my-project.my_dataset.my_table` WHERE id = \(id)"
 /// ```
 public struct Query: Sendable {
 
