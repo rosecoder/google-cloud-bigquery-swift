@@ -12,7 +12,10 @@ public indirect enum BigQueryType: Sendable, Equatable {
     case array(BigQueryType)
     case `struct`([String: BigQueryType])
 
-    var stringRepresentation: String {
+    /// The string representation of the type.
+    ///
+    /// For example, `STRING` or `ARRAY<STRING>`. See: https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#data_type_list
+    public var stringRepresentation: String {
         switch self {
         case .string:
             return "STRING"
@@ -28,6 +31,21 @@ public indirect enum BigQueryType: Sendable, Equatable {
             return "ARRAY"
         case .struct:
             return "STRUCT"
+        }
+    }
+
+    /// The complete string representation of the type.
+    ///
+    /// For example, `STRING`, `ARRAY<STRING>` or `STRUCT<a STRING, b INT64>`. See: https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#data_type_list
+    public var completeStringRepresentation: String {
+        switch self {
+        case .array(let elementType):
+            return "ARRAY<\(elementType.completeStringRepresentation)>"
+        case .struct(let elementType):
+            return
+                "STRUCT<\(elementType.map { $0.key + " " + $0.value.completeStringRepresentation } .joined(separator: ", "))>"
+        default:
+            return stringRepresentation
         }
     }
 
