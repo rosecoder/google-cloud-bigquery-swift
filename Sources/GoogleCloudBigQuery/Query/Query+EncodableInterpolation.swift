@@ -23,8 +23,8 @@ extension Query.StringInterpolation {
 
     let encoder = QueryEncoder(
       codingPath: [],
-      elementType: nil,
-      originalQueryEncodable: Element.self as? QueryEncodable.Type
+      bigQueryType: (Element.self as? QueryEncodable.Type)?.bigQueryType
+        ?? resolveBigQueryType(anySwiftType: Element.self)
     )
     try value.encode(to: encoder)
     parameters.append(try map(buffer: encoder.buffer))
@@ -35,8 +35,8 @@ extension Query.StringInterpolation {
 
     let encoder = QueryEncoder(
       codingPath: [],
-      elementType: bigQueryTypeFromContainingArrayElement(arrayType: [Element].self),
-      originalQueryEncodable: [Element].self as? QueryEncodable.Type
+      bigQueryType: ([Element].self as? QueryEncodable.Type)?.bigQueryType
+        ?? resolveBigQueryType(anySwiftType: [Element].self)
     )
     try value.encode(to: encoder)
     parameters.append(try map(buffer: encoder.buffer))
@@ -91,19 +91,16 @@ private struct QueryEncoder: Swift.Encoder {
 
   let codingPath: [any CodingKey]
   let userInfo = [CodingUserInfoKey: Any]()
-  let elementType: BigQueryType?
-  let originalQueryEncodable: QueryEncodable.Type?
+  let bigQueryType: BigQueryType?
 
   let buffer: QueryEncoder.Buffer = Buffer()
 
   init(
     codingPath: [any CodingKey],
-    elementType: BigQueryType?,
-    originalQueryEncodable: QueryEncodable.Type?
+    bigQueryType: BigQueryType?
   ) {
     self.codingPath = codingPath
-    self.elementType = elementType
-    self.originalQueryEncodable = originalQueryEncodable
+    self.bigQueryType = bigQueryType
   }
 
   final class Buffer {
@@ -154,7 +151,7 @@ private struct QueryEncoder: Swift.Encoder {
         try KeyedContainer(
           codingPath: codingPath,
           buffer: buffer,
-          originalQueryEncodable: originalQueryEncodable,
+          bigQueryType: bigQueryType,
           userInfo: userInfo
         )
       )
@@ -170,27 +167,27 @@ private struct QueryEncoder: Swift.Encoder {
   }
 
   func unkeyedContainer() -> any UnkeyedEncodingContainer {
-    UnkeyedContainer(
-      codingPath: codingPath,
-      buffer: buffer,
-      elementType: elementType
-        ?? ({
-          switch originalQueryEncodable?.bigQueryType {
-          case .array(let type):
-            return type
-          default:
-            return nil
-          }
-        })(),
-      userInfo: userInfo
-    )
+    do {
+      return try UnkeyedContainer(
+        codingPath: codingPath,
+        buffer: buffer,
+        bigQueryType: bigQueryType,
+        userInfo: userInfo
+      )
+    } catch {
+      return ThrowingContainer(
+        error: error,
+        codingPath: codingPath,
+        userInfo: userInfo
+      )
+    }
   }
 
   func singleValueContainer() -> any SingleValueEncodingContainer {
     SingleValueContainer(
       codingPath: codingPath,
       buffer: buffer,
-      originalQueryEncodable: originalQueryEncodable
+      bigQueryType: bigQueryType
     )
   }
 
@@ -198,11 +195,11 @@ private struct QueryEncoder: Swift.Encoder {
 
     let codingPath: [any CodingKey]
     let buffer: QueryEncoder.Buffer
-    let originalQueryEncodable: QueryEncodable.Type?
+    let bigQueryType: BigQueryType?
 
     mutating func encodeNil() throws {
-      if let originalQueryEncodable {
-        buffer.value = .actual(originalQueryEncodable.bigQueryType.nullValue)
+      if let bigQueryType {
+        buffer.value = .actual(bigQueryType.nullValue)
         return
       }
       throw EncodingError.invalidValue(
@@ -281,8 +278,9 @@ private struct QueryEncoder: Swift.Encoder {
 
       let encoder = QueryEncoder(
         codingPath: codingPath,
-        elementType: nil,
-        originalQueryEncodable: T.self as? QueryEncodable.Type
+        bigQueryType: bigQueryType
+          ?? (T.self as? QueryEncodable.Type)?.bigQueryType
+          ?? resolveBigQueryType(anySwiftType: T.self)
       )
       try value.encode(to: encoder)
       buffer.value = encoder.buffer.value
@@ -293,22 +291,22 @@ private struct QueryEncoder: Swift.Encoder {
 
     let codingPath: [CodingKey]
     let buffer: QueryEncoder.Buffer
-    let originalQueryEncodable: QueryEncodable.Type?
+    let bigQueryType: BigQueryType?
     let userInfo: [CodingUserInfoKey: Any]
 
     init(
       codingPath: [CodingKey],
       buffer: Buffer,
-      originalQueryEncodable: QueryEncodable.Type?,
+      bigQueryType: BigQueryType?,
       userInfo: [CodingUserInfoKey: Any]
     ) throws {
       self.codingPath = codingPath
       self.buffer = buffer
-      self.originalQueryEncodable = originalQueryEncodable
+      self.bigQueryType = bigQueryType
       self.userInfo = userInfo
 
-      if let originalQueryEncodable {
-        switch originalQueryEncodable.bigQueryType {
+      if let bigQueryType {
+        switch bigQueryType {
         case .struct(let elementType):
           self.buffer.value = .struct(nil, type: elementType)
         default:
@@ -317,7 +315,7 @@ private struct QueryEncoder: Swift.Encoder {
             EncodingError.Context(
               codingPath: codingPath,
               debugDescription:
-                "Keyed container cannot be used for type \(originalQueryEncodable.bigQueryType)"
+                "Keyed container cannot be used for type \(bigQueryType)"
             )
           )
         }
@@ -329,7 +327,7 @@ private struct QueryEncoder: Swift.Encoder {
     private func write(value: Buffer, forKey key: Key) {
       switch buffer.value {
       case .struct(let values, var elementType):
-        if originalQueryEncodable != nil {
+        if bigQueryType != nil {
           if var values {
             values[key.stringValue] = value
             buffer.value = .struct(values, type: elementType)
@@ -352,6 +350,18 @@ private struct QueryEncoder: Swift.Encoder {
       }
     }
 
+    private func bigQueryType(forKey key: Key) -> BigQueryType? {
+      if let bigQueryType {
+        switch bigQueryType {
+        case .struct(let elementType):
+          return elementType[key.stringValue]
+        default:
+          preconditionFailure("Keyed container cannot be used for type \(bigQueryType)")
+        }
+      }
+      return nil
+    }
+
     mutating func encodeNil(forKey key: Key) throws {
       throw EncodingError.invalidValue(
         buffer,
@@ -372,7 +382,7 @@ private struct QueryEncoder: Swift.Encoder {
           try KeyedContainer<NestedKey>(
             codingPath: codingPath + [key],
             buffer: childBuffer,
-            originalQueryEncodable: nil,
+            bigQueryType: bigQueryType(forKey: key),
             userInfo: userInfo
           )
         )
@@ -388,14 +398,22 @@ private struct QueryEncoder: Swift.Encoder {
     }
 
     mutating func nestedUnkeyedContainer(forKey key: Key) -> any UnkeyedEncodingContainer {
-      let childBuffer = Buffer()
-      write(value: childBuffer, forKey: key)
-      return UnkeyedContainer(
-        codingPath: codingPath + [key],
-        buffer: childBuffer,
-        elementType: nil,
-        userInfo: userInfo
-      )
+      do {
+        let childBuffer = Buffer()
+        write(value: childBuffer, forKey: key)
+        return try UnkeyedContainer(
+          codingPath: codingPath + [key],
+          buffer: childBuffer,
+          bigQueryType: bigQueryType(forKey: key),
+          userInfo: userInfo
+        )
+      } catch {
+        return ThrowingContainer(
+          error: error,
+          codingPath: codingPath + [key],
+          userInfo: userInfo
+        )
+      }
     }
 
     mutating func superEncoder() -> any Encoder {
@@ -472,8 +490,9 @@ private struct QueryEncoder: Swift.Encoder {
 
       let encoder = QueryEncoder(
         codingPath: codingPath + [key],
-        elementType: bigQueryTypeFromContainingArrayElement(arrayType: T.self),
-        originalQueryEncodable: T.self as? QueryEncodable.Type
+        bigQueryType: bigQueryType(forKey: key)
+          ?? (T.self as? QueryEncodable.Type)?.bigQueryType
+          ?? resolveBigQueryType(anySwiftType: T.self)
       )
       try value.encode(to: encoder)
       write(value: encoder.buffer, forKey: key)
@@ -484,6 +503,7 @@ private struct QueryEncoder: Swift.Encoder {
 
     var codingPath: [CodingKey]
     let buffer: QueryEncoder.Buffer
+    let bigQueryType: BigQueryType?
     let elementType: BigQueryType?
     let userInfo: [CodingUserInfoKey: Any]
 
@@ -496,14 +516,33 @@ private struct QueryEncoder: Swift.Encoder {
     init(
       codingPath: [CodingKey],
       buffer: Buffer,
-      elementType: BigQueryType?,
+      bigQueryType: BigQueryType?,
       userInfo: [CodingUserInfoKey: Any]
-    ) {
+    ) throws {
       self.codingPath = codingPath
       self.buffer = buffer
-      self.elementType = elementType
       self.userInfo = userInfo
-      self.buffer.value = .array([], type: elementType)
+      self.bigQueryType = bigQueryType
+
+      if let bigQueryType {
+        switch bigQueryType {
+        case .array(let elementType):
+          self.buffer.value = .array([], type: elementType)
+          self.elementType = elementType
+        default:
+          throw EncodingError.invalidValue(
+            buffer.value,
+            EncodingError.Context(
+              codingPath: codingPath,
+              debugDescription:
+                "Unkeyed container cannot be used for type \(bigQueryType)"
+            )
+          )
+        }
+      } else {
+        self.buffer.value = .array([], type: nil)
+        self.elementType = nil
+      }
     }
 
     private mutating func write(value: Buffer) throws {
@@ -554,7 +593,7 @@ private struct QueryEncoder: Swift.Encoder {
           try KeyedContainer<NestedKey>(
             codingPath: codingPath + [IndexKey(currentIndex)],
             buffer: childBuffer,
-            originalQueryEncodable: nil,
+            bigQueryType: elementType,
             userInfo: userInfo
           )
         )
@@ -573,10 +612,10 @@ private struct QueryEncoder: Swift.Encoder {
       do {
         let childBuffer = Buffer()
         try write(value: childBuffer)
-        return UnkeyedContainer(
+        return try UnkeyedContainer(
           codingPath: codingPath + [IndexKey(currentIndex)],
           buffer: childBuffer,
-          elementType: nil,
+          bigQueryType: elementType,
           userInfo: userInfo
         )
       } catch {
@@ -658,8 +697,7 @@ private struct QueryEncoder: Swift.Encoder {
 
       let encoder = QueryEncoder(
         codingPath: codingPath,
-        elementType: nil,
-        originalQueryEncodable: T.self as? QueryEncodable.Type
+        bigQueryType: elementType ?? (T.self as? QueryEncodable.Type)?.bigQueryType
       )
       try value.encode(to: encoder)
       try write(value: encoder.buffer)
@@ -865,50 +903,92 @@ private struct QueryEncoder: Swift.Encoder {
   }
 }
 
-private func bigQueryTypeFromContainingArrayElement<Element: Encodable>(
-  arrayType type: Element.Type
+private func resolveBigQueryType<Element: Encodable>(
+  anySwiftType type: Element.Type
 ) -> BigQueryType? {
-  if type == [Int].self {
+  if type == Int.self {
     return .int64
   }
-  if type == [Int8].self {
+  if type == Int8.self {
     return .int64
   }
-  if type == [Int16].self {
+  if type == Int16.self {
     return .int64
   }
-  if type == [Int32].self {
+  if type == Int32.self {
     return .int64
   }
-  if type == [Int64].self {
+  if type == Int64.self {
     return .int64
   }
-  if type == [UInt].self {
+  if type == UInt.self {
     return .int64
   }
-  if type == [UInt8].self {
+  if type == UInt8.self {
     return .int64
   }
-  if type == [UInt16].self {
+  if type == UInt16.self {
     return .int64
   }
-  if type == [UInt32].self {
+  if type == UInt32.self {
     return .int64
   }
-  if type == [UInt64].self {
+  if type == UInt64.self {
     return .int64
   }
-  if type == [Float].self {
+  if type == Float.self {
     return .float64
   }
-  if type == [Double].self {
+  if type == Double.self {
     return .float64
   }
-  if type == [String].self {
+  if type == String.self {
     return .string
   }
-  if type == [Bool].self {
+  if type == Bool.self {
     return .bool
+  }
+  if type == [Int].self {
+    return .array(.int64)
+  }
+  if type == [Int8].self {
+    return .array(.int64)
+  }
+  if type == [Int16].self {
+    return .array(.int64)
+  }
+  if type == [Int32].self {
+    return .array(.int64)
+  }
+  if type == [Int64].self {
+    return .array(.int64)
+  }
+  if type == [UInt].self {
+    return .array(.int64)
+  }
+  if type == [UInt8].self {
+    return .array(.int64)
+  }
+  if type == [UInt16].self {
+    return .array(.int64)
+  }
+  if type == [UInt32].self {
+    return .array(.int64)
+  }
+  if type == [UInt64].self {
+    return .array(.int64)
+  }
+  if type == [Float].self {
+    return .array(.float64)
+  }
+  if type == [Double].self {
+    return .array(.float64)
+  }
+  if type == [String].self {
+    return .array(.string)
+  }
+  if type == [Bool].self {
+    return .array(.bool)
   }
   return nil
 }

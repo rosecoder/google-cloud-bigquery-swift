@@ -394,4 +394,77 @@ import Testing
         #expect(query.parameters.count == 1)
         #expect(query.parameters.first == .init(value: .string(nil), type: .timestamp))
     }
+
+    @Test func shouldInitializeFromInterpolationWithQueryEncodable() throws {
+
+        struct Struct: QueryEncodable {
+
+            static let bigQueryType: BigQueryType = .struct([
+                "string": BigQueryType.string,
+                "int": BigQueryType.int64,
+            ])
+
+            let string: String
+            let int: Int
+        }
+
+        let query: Query = try "SELECT \(Struct(string: "Hello, World!", int: 1))"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(
+            query.parameters.first
+                == .init(
+                    value: .struct([
+                        "string": .string("Hello, World!"),
+                        "int": .string("1"),
+                    ]),
+                    type: .struct([
+                        "string": .string,
+                        "int": .int64,
+                    ])
+                )
+        )
+    }
+
+    @Test func shouldInitializeFromInterpolationWithQueryEncodableWhereEncodingChildNil() throws {
+
+        struct Struct: QueryEncodable {
+
+            static let bigQueryType: BigQueryType = .struct([
+                "string": BigQueryType.string,
+                "int": BigQueryType.int64,
+            ])
+
+            let string: String?
+            let int: Int
+
+            enum CodingKeys: String, CodingKey {
+                case string
+                case int
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(string, forKey: .string)
+                try container.encode(int, forKey: .int)
+            }
+        }
+
+        let query: Query = try "SELECT \(Struct(string: nil, int: 1))"
+        #expect(query.sql == "SELECT ?")
+        #expect(query.parameters.count == 1)
+        #expect(
+            query.parameters.first
+                == .init(
+                    value: .struct([
+                        "string": .string(nil),
+                        "int": .string("1"),
+                    ]),
+                    type: .struct([
+                        "string": .string,
+                        "int": .int64,
+                    ])
+                )
+        )
+    }
 }
