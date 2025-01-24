@@ -72,7 +72,10 @@ public final class BigQuery: BigQueryProtocol, Service {
     switch response.status {
     case .ok, .created:
       let body = try await response.body.collect(upTo: 1024 * 1024)  // 1 MB
-      return try Body.init(jsonUTF8Data: Data(buffer: body))
+      var decodingOptions = JSONDecodingOptions()
+      decodingOptions.ignoreUnknownFields = true
+      decodingOptions.messageDepthLimit = 1_000
+      return try Body.init(jsonUTF8Data: Data(buffer: body), options: decodingOptions)
     default:
       let body = try await response.body.collect(upTo: 1024 * 100)  // 100 KB
 
