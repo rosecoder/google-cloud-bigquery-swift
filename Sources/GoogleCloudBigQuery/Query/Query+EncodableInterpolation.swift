@@ -425,19 +425,24 @@ private struct QueryEncoder: Swift.Encoder {
     private mutating func write(value: Buffer) throws {
       switch buffer.value {
       case .array(var values, let elementType):
-        let typeOfValue = value.type
-        if let typeOfValue, let any = values.first, let typeOfAny = any.type {
-          if typeOfAny != typeOfValue {
-            throw EncodingError.invalidValue(
-              value,
-              EncodingError.Context(
-                codingPath: codingPath,
-                debugDescription: "All elements in array must have the same type"
-              ))
+        if let elementType {
+          values.append(value)
+          buffer.value = .array(values, type: elementType)
+        } else {
+          let typeOfValue = value.type
+          if let typeOfValue, let any = values.first, let typeOfAny = any.type {
+            if typeOfAny != typeOfValue {
+              throw EncodingError.invalidValue(
+                value,
+                EncodingError.Context(
+                  codingPath: codingPath,
+                  debugDescription: "All elements in array must have the same type"
+                ))
+            }
           }
+          values.append(value)
+          buffer.value = .array(values, type: typeOfValue)
         }
-        values.append(value)
-        buffer.value = .array(values, type: elementType ?? typeOfValue)
       default:
         assertionFailure("Unkeyed container buffer was overwritten to non-array value")
         buffer.value = .array([value], type: elementType)
