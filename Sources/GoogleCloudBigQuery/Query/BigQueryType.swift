@@ -1,3 +1,5 @@
+import OrderedCollections
+
 /// Enum for BigQuery data types.
 ///
 /// Types containing children (like `array` and `struct`) contains their element type, but not in the `stringRepresentation`.
@@ -10,7 +12,7 @@ public indirect enum BigQueryType: Sendable, Equatable {
     case bool
     case timestamp
     case array(BigQueryType)
-    case `struct`([String: BigQueryType])
+    case `struct`(OrderedDictionary<String, BigQueryType>)
 
     /// The string representation of the type.
     ///

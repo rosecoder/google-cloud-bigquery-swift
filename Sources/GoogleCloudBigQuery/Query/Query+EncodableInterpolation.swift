@@ -1,3 +1,5 @@
+import OrderedCollections
+
 #if canImport(Foundation)
   import struct Foundation.Date
 #endif
@@ -112,7 +114,8 @@ private struct QueryEncoder: Swift.Encoder {
       case actual(Query.Parameter)
 
       case array([Buffer], type: BigQueryType?)
-      case `struct`([String: Buffer]?, type: [String: BigQueryType])
+      case `struct`(
+        OrderedDictionary<String, Buffer>?, type: OrderedDictionary<String, BigQueryType>)
       case buffer(Buffer)
     }
 

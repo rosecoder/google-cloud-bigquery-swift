@@ -187,7 +187,10 @@ extension BigQuery {
     case .struct(let values):
       return .with {
         if let values {
-          $0.structValues = values.compactMapValues(encode)
+          $0.structValues = Dictionary(
+            uniqueKeysWithValues: values.mapValues(encode).map { key, value in
+              (key, value)
+            })
         }
       }
     }

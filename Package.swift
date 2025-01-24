@@ -21,6 +21,7 @@ let package = Package(
     .package(url: "https://github.com/rosecoder/retryable-task.git", from: "1.1.2"),
     .package(
       url: "https://github.com/rosecoder/google-cloud-service-context.git", from: "0.0.2"),
+    .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.0"),
   ],
   targets: [
     .target(
@@ -34,6 +35,7 @@ let package = Package(
         .product(name: "GoogleCloudAuth", package: "google-cloud-auth-swift"),
         .product(name: "RetryableTask", package: "retryable-task"),
         .product(name: "GRPCProtobuf", package: "grpc-swift-protobuf"),
+        .product(name: "OrderedCollections", package: "swift-collections"),
       ]
     ),
     .testTarget(

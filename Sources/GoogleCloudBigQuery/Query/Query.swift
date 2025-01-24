@@ -1,3 +1,5 @@
+import OrderedCollections
+
 #if canImport(Foundation)
   import struct Foundation.Date
   import class Foundation.DateFormatter
@@ -137,7 +139,7 @@ extension Query {
     public indirect enum Value: Sendable, Equatable {
       case string(String?)
       case array([Value])
-      case `struct`([String: Value]?)
+      case `struct`(OrderedDictionary<String, Value>?)
     }
   }
 }
