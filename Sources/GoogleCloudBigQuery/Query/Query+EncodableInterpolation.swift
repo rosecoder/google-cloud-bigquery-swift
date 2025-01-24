@@ -149,7 +149,24 @@ private struct QueryEncoder: Swift.Encoder {
 
   func container<Key>(keyedBy type: Key.Type) -> KeyedEncodingContainer<Key>
   where Key: CodingKey {
-    KeyedEncodingContainer(KeyedContainer(codingPath: codingPath, buffer: buffer))
+    do {
+      return KeyedEncodingContainer(
+        try KeyedContainer(
+          codingPath: codingPath,
+          buffer: buffer,
+          originalQueryEncodable: originalQueryEncodable,
+          userInfo: userInfo
+        )
+      )
+    } catch {
+      return KeyedEncodingContainer(
+        ThrowingKeyedContainer(
+          error: error,
+          codingPath: codingPath,
+          userInfo: userInfo
+        )
+      )
+    }
   }
 
   func unkeyedContainer() -> any UnkeyedEncodingContainer {
@@ -157,6 +174,15 @@ private struct QueryEncoder: Swift.Encoder {
       codingPath: codingPath,
       buffer: buffer,
       elementType: elementType
+        ?? ({
+          switch originalQueryEncodable?.bigQueryType {
+          case .array(let type):
+            return type
+          default:
+            return nil
+          }
+        })(),
+      userInfo: userInfo
     )
   }
 
@@ -267,23 +293,58 @@ private struct QueryEncoder: Swift.Encoder {
 
     let codingPath: [CodingKey]
     let buffer: QueryEncoder.Buffer
+    let originalQueryEncodable: QueryEncodable.Type?
+    let userInfo: [CodingUserInfoKey: Any]
 
-    init(codingPath: [CodingKey], buffer: Buffer) {
+    init(
+      codingPath: [CodingKey],
+      buffer: Buffer,
+      originalQueryEncodable: QueryEncodable.Type?,
+      userInfo: [CodingUserInfoKey: Any]
+    ) throws {
       self.codingPath = codingPath
       self.buffer = buffer
-      self.buffer.value = .struct(nil, type: [:])
+      self.originalQueryEncodable = originalQueryEncodable
+      self.userInfo = userInfo
+
+      if let originalQueryEncodable {
+        switch originalQueryEncodable.bigQueryType {
+        case .struct(let elementType):
+          self.buffer.value = .struct(nil, type: elementType)
+        default:
+          throw EncodingError.invalidValue(
+            buffer.value,
+            EncodingError.Context(
+              codingPath: codingPath,
+              debugDescription:
+                "Keyed container cannot be used for type \(originalQueryEncodable.bigQueryType)"
+            )
+          )
+        }
+      } else {
+        self.buffer.value = .struct(nil, type: [:])
+      }
     }
 
     private func write(value: Buffer, forKey key: Key) {
       switch buffer.value {
       case .struct(let values, var elementType):
-        if var values {
-          values[key.stringValue] = value
-          elementType[key.stringValue] = value.type
-          buffer.value = .struct(values, type: elementType)
+        if originalQueryEncodable != nil {
+          if var values {
+            values[key.stringValue] = value
+            buffer.value = .struct(values, type: elementType)
+          } else {
+            buffer.value = .struct([key.stringValue: value], type: elementType)
+          }
         } else {
-          elementType[key.stringValue] = value.type
-          buffer.value = .struct([key.stringValue: value], type: elementType)
+          if var values {
+            values[key.stringValue] = value
+            elementType[key.stringValue] = value.type
+            buffer.value = .struct(values, type: elementType)
+          } else {
+            elementType[key.stringValue] = value.type
+            buffer.value = .struct([key.stringValue: value], type: elementType)
+          }
         }
       default:
         assertionFailure("Keyed container buffer was overwritten to non-struct value")
@@ -304,11 +365,26 @@ private struct QueryEncoder: Swift.Encoder {
     mutating func nestedContainer<NestedKey>(keyedBy keyType: NestedKey.Type, forKey key: Key)
       -> KeyedEncodingContainer<NestedKey> where NestedKey: CodingKey
     {
-      let childBuffer = Buffer()
-      write(value: childBuffer, forKey: key)
-      return KeyedEncodingContainer(
-        KeyedContainer<NestedKey>(codingPath: codingPath + [key], buffer: childBuffer)
-      )
+      do {
+        let childBuffer = Buffer()
+        write(value: childBuffer, forKey: key)
+        return KeyedEncodingContainer(
+          try KeyedContainer<NestedKey>(
+            codingPath: codingPath + [key],
+            buffer: childBuffer,
+            originalQueryEncodable: nil,
+            userInfo: userInfo
+          )
+        )
+      } catch {
+        return KeyedEncodingContainer(
+          ThrowingKeyedContainer<NestedKey>(
+            error: error,
+            codingPath: codingPath + [key],
+            userInfo: userInfo
+          )
+        )
+      }
     }
 
     mutating func nestedUnkeyedContainer(forKey key: Key) -> any UnkeyedEncodingContainer {
@@ -317,7 +393,8 @@ private struct QueryEncoder: Swift.Encoder {
       return UnkeyedContainer(
         codingPath: codingPath + [key],
         buffer: childBuffer,
-        elementType: nil
+        elementType: nil,
+        userInfo: userInfo
       )
     }
 
@@ -329,7 +406,7 @@ private struct QueryEncoder: Swift.Encoder {
       fatalError("\(#function) has not been implemented")
     }
 
-    func encode(_ value: Bool, forKey key: Key) throws {
+    mutating func encode(_ value: Bool, forKey key: Key) throws {
       write(value: Buffer(value: .actual(.init(value: value))), forKey: key)
     }
 
@@ -408,6 +485,7 @@ private struct QueryEncoder: Swift.Encoder {
     var codingPath: [CodingKey]
     let buffer: QueryEncoder.Buffer
     let elementType: BigQueryType?
+    let userInfo: [CodingUserInfoKey: Any]
 
     var currentIndex: Int = -1
 
@@ -415,10 +493,16 @@ private struct QueryEncoder: Swift.Encoder {
       currentIndex + 1
     }
 
-    init(codingPath: [CodingKey], buffer: Buffer, elementType: BigQueryType?) {
+    init(
+      codingPath: [CodingKey],
+      buffer: Buffer,
+      elementType: BigQueryType?,
+      userInfo: [CodingUserInfoKey: Any]
+    ) {
       self.codingPath = codingPath
       self.buffer = buffer
       self.elementType = elementType
+      self.userInfo = userInfo
       self.buffer.value = .array([], type: elementType)
     }
 
@@ -463,24 +547,45 @@ private struct QueryEncoder: Swift.Encoder {
     mutating func nestedContainer<NestedKey>(keyedBy keyType: NestedKey.Type)
       -> KeyedEncodingContainer<NestedKey> where NestedKey: CodingKey
     {
-      let childBuffer = Buffer()
-      try! write(value: childBuffer)  // TODO: Handle error
-      return KeyedEncodingContainer(
-        KeyedContainer<NestedKey>(
-          codingPath: codingPath + [IndexKey(currentIndex)],
-          buffer: childBuffer
+      do {
+        let childBuffer = Buffer()
+        try write(value: childBuffer)
+        return KeyedEncodingContainer(
+          try KeyedContainer<NestedKey>(
+            codingPath: codingPath + [IndexKey(currentIndex)],
+            buffer: childBuffer,
+            originalQueryEncodable: nil,
+            userInfo: userInfo
+          )
         )
-      )
+      } catch {
+        return KeyedEncodingContainer(
+          ThrowingKeyedContainer<NestedKey>(
+            error: error,
+            codingPath: codingPath + [IndexKey(currentIndex)],
+            userInfo: userInfo
+          )
+        )
+      }
     }
 
     mutating func nestedUnkeyedContainer() -> any UnkeyedEncodingContainer {
-      let childBuffer = Buffer()
-      try! write(value: childBuffer)  // TODO: Handle error
-      return UnkeyedContainer(
-        codingPath: codingPath + [IndexKey(currentIndex)],
-        buffer: childBuffer,
-        elementType: nil
-      )
+      do {
+        let childBuffer = Buffer()
+        try write(value: childBuffer)
+        return UnkeyedContainer(
+          codingPath: codingPath + [IndexKey(currentIndex)],
+          buffer: childBuffer,
+          elementType: nil,
+          userInfo: userInfo
+        )
+      } catch {
+        return ThrowingContainer(
+          error: error,
+          codingPath: codingPath + [IndexKey(currentIndex)],
+          userInfo: userInfo
+        )
+      }
     }
 
     mutating func superEncoder() -> any Encoder {
@@ -558,6 +663,204 @@ private struct QueryEncoder: Swift.Encoder {
       )
       try value.encode(to: encoder)
       try write(value: encoder.buffer)
+    }
+  }
+
+  private struct ThrowingContainer: Encoder, SingleValueEncodingContainer, UnkeyedEncodingContainer
+  {
+
+    let error: Error
+    let codingPath: [any CodingKey]
+    let userInfo: [CodingUserInfoKey: Any]
+
+    var count: Int { 0 }
+
+    func container<Key>(keyedBy type: Key.Type) -> KeyedEncodingContainer<Key>
+    where Key: CodingKey {
+      KeyedEncodingContainer(
+        ThrowingKeyedContainer<Key>(error: error, codingPath: codingPath, userInfo: userInfo)
+      )
+    }
+
+    func unkeyedContainer() -> any UnkeyedEncodingContainer {
+      ThrowingContainer(error: error, codingPath: codingPath, userInfo: userInfo)
+    }
+
+    func singleValueContainer() -> any SingleValueEncodingContainer {
+      ThrowingContainer(error: error, codingPath: codingPath, userInfo: userInfo)
+    }
+
+    mutating func encodeNil() throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Bool) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: String) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Double) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Float) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int8) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int16) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int32) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int64) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt8) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt16) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt32) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt64) throws {
+      throw error
+    }
+
+    mutating func encode<T>(_ value: T) throws where T: Encodable {
+      throw error
+    }
+
+    mutating func nestedContainer<NestedKey>(keyedBy keyType: NestedKey.Type)
+      -> KeyedEncodingContainer<NestedKey> where NestedKey: CodingKey
+    {
+      KeyedEncodingContainer(
+        ThrowingKeyedContainer<NestedKey>(error: error, codingPath: codingPath, userInfo: userInfo)
+      )
+    }
+
+    mutating func nestedUnkeyedContainer() -> any UnkeyedEncodingContainer {
+      ThrowingContainer(error: error, codingPath: codingPath, userInfo: userInfo)
+    }
+
+    mutating func superEncoder() -> any Encoder {
+      fatalError("\(#function) has not been implemented")
+    }
+  }
+
+  private struct ThrowingKeyedContainer<Key>: KeyedEncodingContainerProtocol
+  where Key: CodingKey {
+
+    let error: Error
+    let codingPath: [any CodingKey]
+    let userInfo: [CodingUserInfoKey: Any]
+
+    mutating func encodeNil(forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Bool, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: String, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Double, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Float, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int8, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int16, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int32, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: Int64, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt8, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt16, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt32, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode(_ value: UInt64, forKey key: Key) throws {
+      throw error
+    }
+
+    mutating func encode<T>(_ value: T, forKey key: Key) throws where T: Encodable {
+      throw error
+    }
+
+    mutating func nestedContainer<NestedKey>(keyedBy keyType: NestedKey.Type, forKey key: Key)
+      -> KeyedEncodingContainer<NestedKey> where NestedKey: CodingKey
+    {
+      KeyedEncodingContainer(
+        ThrowingKeyedContainer<NestedKey>(
+          error: error, codingPath: codingPath + [key], userInfo: userInfo)
+      )
+    }
+
+    mutating func nestedUnkeyedContainer(forKey key: Key) -> any UnkeyedEncodingContainer {
+      ThrowingContainer(error: error, codingPath: codingPath + [key], userInfo: userInfo)
+    }
+
+    mutating func superEncoder() -> any Encoder {
+      fatalError("\(#function) has not been implemented")
+    }
+
+    mutating func superEncoder(forKey key: Key) -> any Encoder {
+      fatalError("\(#function) has not been implemented")
     }
   }
 }
