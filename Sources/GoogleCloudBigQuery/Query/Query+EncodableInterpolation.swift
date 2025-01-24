@@ -19,24 +19,28 @@ extension Query.StringInterpolation {
   #endif
 
   public mutating func appendInterpolation<Element: Encodable>(_ value: Element) throws {
+    try append(value)
+  }
+
+  public mutating func appendInterpolation<Element: Encodable>(_ value: Element?) throws {
+    try append(value)
+  }
+
+  public mutating func appendInterpolation<Element: Encodable>(_ value: [Element]) throws {
+    try append(value)
+  }
+
+  public mutating func appendInterpolation<Element: Encodable>(_ value: [Element]?) throws {
+    try append(value)
+  }
+
+  private mutating func append<Element: Encodable>(_ value: Element) throws {
     description.append("?")
 
     let encoder = QueryEncoder(
       codingPath: [],
       bigQueryType: (Element.self as? QueryEncodable.Type)?.bigQueryType
         ?? resolveBigQueryType(anySwiftType: Element.self)
-    )
-    try value.encode(to: encoder)
-    parameters.append(try map(buffer: encoder.buffer))
-  }
-
-  public mutating func appendInterpolation<Element: Encodable>(_ value: [Element]) throws {
-    description.append("?")
-
-    let encoder = QueryEncoder(
-      codingPath: [],
-      bigQueryType: ([Element].self as? QueryEncodable.Type)?.bigQueryType
-        ?? resolveBigQueryType(anySwiftType: [Element].self)
     )
     try value.encode(to: encoder)
     parameters.append(try map(buffer: encoder.buffer))
