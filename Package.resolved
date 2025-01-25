@@ -1,5 +1,5 @@
 {
-  "originHash" : "b9872dc8f7adce37ab37f29992648afe9eb1490e54a20448dc33e8fb06cc87d6",
+  "originHash" : "5b8afc4a70821d76b3e7fc2a67306e6b4e1116ba9a3e6b0e2899620ea2e17d8b",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -35,6 +35,15 @@
       "state" : {
         "revision" : "0696e0adf7e081ba7a757a4c87242a1aab524078",
         "version" : "2.0.0-beta.2"
+      }
+    },
+    {
+      "identity" : "grpc-swift-nio-transport",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/grpc/grpc-swift-nio-transport.git",
+      "state" : {
+        "revision" : "e97f97e399f62dbedadfa4e55e962577c313907d",
+        "version" : "1.0.0-beta.2"
       }
     },
     {

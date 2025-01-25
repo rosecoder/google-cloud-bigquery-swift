@@ -1,5 +1,7 @@
 import AsyncHTTPClient
 import Foundation
+import GRPCCore
+import GRPCNIOTransportHTTP2Posix
 import GoogleCloudAuth
 import GoogleCloudServiceContext
 import Logging
@@ -7,14 +9,17 @@ import NIO
 import NIOHTTP1
 import ServiceLifecycle
 import SwiftProtobuf
+import Synchronization
 
 public final class BigQuery: BigQueryProtocol, Service {
 
   let logger = Logger(label: "bigquery")
 
   private let authorization: Authorization
-  private let client: HTTPClient
-  private let endpoint = "https://bigquery.googleapis.com"
+  private let _httpClient = Mutex<HTTPClient?>(nil)
+  private let _grpcClient = Mutex<
+    (GRPCClient, Task<Void, Error>, Google_Cloud_Bigquery_Storage_V1_BigQueryWrite.ClientProtocol)?
+  >(nil)
 
   public enum ConfigurationError: Error {
     case missingProjectID
@@ -26,19 +31,54 @@ public final class BigQuery: BigQueryProtocol, Service {
     guard let projectID = await (ServiceContext.current ?? .topLevel).projectID else {
       throw ConfigurationError.missingProjectID
     }
-    try self.init(projectID: projectID)
+    self.init(projectID: projectID)
   }
 
-  public init(projectID: String) throws {
+  public init(projectID: String) {
     self.projectID = projectID
 
     self.authorization = Authorization(
       scopes: ["https://www.googleapis.com/auth/bigquery"],
       eventLoopGroup: .singletonMultiThreadedEventLoopGroup
     )
-    self.client = HTTPClient(
-      eventLoopGroupProvider: .shared(.singletonMultiThreadedEventLoopGroup)
-    )
+  }
+
+  var httpClient: HTTPClient {
+    _httpClient.withLock {
+      if let client = $0 {
+        return client
+      }
+      let client = HTTPClient(
+        eventLoopGroupProvider: .shared(.singletonMultiThreadedEventLoopGroup)
+      )
+      $0 = client
+      return client
+    }
+  }
+
+  var grpcClient: Google_Cloud_Bigquery_Storage_V1_BigQueryWrite.ClientProtocol {
+    get throws {
+      try _grpcClient.withLock {
+        if let (_, _, client) = $0 {
+          return client
+        }
+        let grpcClient = GRPCClient(
+          transport: try .http2NIOPosix(
+            target: .dns(host: "bigquerystorage.googleapis.com"),
+            transportSecurity: .tls
+          ),
+          interceptors: [
+            AuthorizationClientInterceptor(authorization: authorization)
+          ]
+        )
+        let client = Google_Cloud_Bigquery_Storage_V1_BigQueryWrite.Client(wrapping: grpcClient)
+        let runTask = Task {
+          try await grpcClient.run()  // TODO: Add error handling and forward somewhere to run function?
+        }
+        $0 = (grpcClient, runTask, client)
+        return client
+      }
+    }
   }
 
   public func run() async throws {
@@ -47,7 +87,21 @@ public final class BigQuery: BigQueryProtocol, Service {
         try? await Task.sleep(nanoseconds: .max / 2)
       }
     }
-    try await client.shutdown()
+
+    try await withThrowingDiscardingTaskGroup { group in
+      group.addTask {
+        let httpClient = self._httpClient.withLock { $0 }
+        try await httpClient?.shutdown()
+
+      }
+      group.addTask {
+        if let (grpcClient, runTask, _) = self._grpcClient.withLock({ $0 }) {
+          grpcClient.beginGracefulShutdown()
+          try await runTask.value
+        }
+      }
+    }
+
     try await authorization.shutdown()
   }
 
@@ -58,13 +112,14 @@ public final class BigQuery: BigQueryProtocol, Service {
   ) async throws -> Body {
     let accessToken = try await authorization.accessToken()
 
-    var request = HTTPClientRequest(url: endpoint + "/bigquery/v2/projects/\(projectID)" + path)  // TODO: Encode project id
+    var request = HTTPClientRequest(
+      url: "https://bigquery.googleapis.com/bigquery/v2/projects/\(projectID)" + path)  // TODO: Encode project id
     request.method = method
     request.headers.add(name: "Authorization", value: "Bearer " + accessToken)
     request.headers.add(name: "Content-Type", value: "application/json")
     request.body = .bytes(try body.jsonUTF8Data())
 
-    let response = try await client.execute(request, timeout: .seconds(30))
+    let response = try await httpClient.execute(request, timeout: .seconds(30))
     return try await handle(response: response)
   }
 

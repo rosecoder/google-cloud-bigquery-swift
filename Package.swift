@@ -17,6 +17,7 @@ let package = Package(
     .package(url: "https://github.com/apple/swift-distributed-tracing.git", from: "1.1.0"),
     .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.0.0"),
     .package(url: "https://github.com/grpc/grpc-swift-protobuf.git", from: "1.0.0-beta.2"),
+    .package(url: "https://github.com/grpc/grpc-swift-nio-transport.git", from: "1.0.0-beta.2"),
     .package(url: "https://github.com/rosecoder/google-cloud-auth-swift.git", from: "1.0.0"),
     .package(url: "https://github.com/rosecoder/retryable-task.git", from: "1.1.2"),
     .package(
@@ -35,6 +36,7 @@ let package = Package(
         .product(name: "GoogleCloudAuth", package: "google-cloud-auth-swift"),
         .product(name: "RetryableTask", package: "retryable-task"),
         .product(name: "GRPCProtobuf", package: "grpc-swift-protobuf"),
+        .product(name: "GRPCNIOTransportHTTP2", package: "grpc-swift-nio-transport"),
         .product(name: "OrderedCollections", package: "swift-collections"),
       ]
     ),

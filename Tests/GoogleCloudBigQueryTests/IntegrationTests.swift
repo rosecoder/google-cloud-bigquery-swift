@@ -109,4 +109,50 @@ final class IntegrationTests {
         )
         #expect(result.affectedRows == 1)
     }
+
+    @Test func shouldWriteWithStorageWrite() async throws {
+
+        struct Row: QueryCodable {
+
+            static let bigQueryType: BigQueryType = .struct([
+                "a_string": .string,
+                "a_int": .int64,
+                "a_timestamp": .timestamp,
+                "a_nullable_string": .string,
+            ])
+
+            let a_string: String
+            let a_int: Int
+            let a_timestamp: Date
+            let a_nullable_string: String?
+        }
+
+        try await bigQuery.batchWrite(datasetID: "my_dataset", tableID: "my_table") { stream in
+
+            // Insert single row
+            try await stream.write(
+                row: Row(
+                    a_string: "This is row 1", a_int: 1, a_timestamp: Date(), a_nullable_string: nil
+                ))
+
+            // Insert single row again
+            try await stream.write(
+                row: Row(
+                    a_string: "This is row 2", a_int: 2, a_timestamp: Date(), a_nullable_string: nil
+                ))
+
+            // Insert multiple rows
+            try await stream.write(rows: [
+                Row(
+                    a_string: "This is row 3", a_int: 3, a_timestamp: Date(), a_nullable_string: nil
+                ),
+                Row(
+                    a_string: "This is row 4",
+                    a_int: 4,
+                    a_timestamp: Date(),
+                    a_nullable_string: "Still row 4"
+                ),
+            ])
+        }
+    }
 }
