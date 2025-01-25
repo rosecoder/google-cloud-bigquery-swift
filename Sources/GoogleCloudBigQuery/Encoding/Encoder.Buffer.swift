@@ -16,7 +16,7 @@ extension Encoder {
         }
 
         init() {
-            self.value = .actual(.init(stringValue: nil, type: .string))  // TODO: Throw somewhere if this is never overwritten?
+            self.value = .actual(.init(nil as Bool?))  // TODO: Throw somewhere if this is never overwritten?
         }
 
         init(value: Value) {

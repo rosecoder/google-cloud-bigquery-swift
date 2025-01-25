@@ -204,27 +204,12 @@ import Testing
         #expect(query.parameters.first == BigQueryValue(nil as UInt32?))
     }
 
-    @Test func shouldInitializeFromInterpolationWithTypeUInt64() throws {
-        let value: UInt64 = 64
-        let query: Query = "SELECT \(value)"
-        #expect(query.sql == "SELECT ?")
-        #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == BigQueryValue(64))
-    }
-
-    @Test func shouldInitializeFromInterpolationWithTypeUInt64Nil() throws {
-        let query: Query = "SELECT \(nil as UInt64?)"
-        #expect(query.sql == "SELECT ?")
-        #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == BigQueryValue(nil as UInt64?))
-    }
-
     @Test func shouldInitializeFromInterpolationWithTypeFloat() throws {
         let value: Float = 3.14
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == BigQueryValue(3.14))
+        #expect(query.parameters.first == BigQueryValue(3.14 as Float))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeFloatNil() throws {
@@ -331,7 +316,7 @@ import Testing
                 == BigQueryValue(
                     value:
                         .struct([
-                            "children": BigQueryValue(value: .array([]), type: .array(.bool)),
+                            "children": BigQueryValue(value: .array([]), type: .array(.bool))
                         ]),
                     type: .struct(["children": .array(.bool)])
                 )
@@ -402,7 +387,8 @@ import Testing
         #expect(query.parameters.count == 1)
         #expect(
             query.parameters.first
-                == .init(value: .string("1998-03-02 04:55:02.000000 UTC"), type: .timestamp)
+                == .init(
+                    value: .timestamp(Date(timeIntervalSince1970: 888_814_502)), type: .timestamp)
         )
     }
 
@@ -410,7 +396,7 @@ import Testing
         let query: Query = "SELECT \(nil as Date?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: .string(nil), type: .timestamp))
+        #expect(query.parameters.first == .init(value: .timestamp(nil), type: .timestamp))
     }
 
     @Test func shouldInitializeFromInterpolationWithQueryEncodable() throws {
@@ -475,7 +461,7 @@ import Testing
             query.parameters.first
                 == .init(
                     value: .struct([
-                        "int": BigQueryValue(1),
+                        "int": BigQueryValue(1)
                     ]),
                     type: .struct([
                         "string": .string,

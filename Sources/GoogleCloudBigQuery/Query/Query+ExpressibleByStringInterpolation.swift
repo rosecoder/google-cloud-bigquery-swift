@@ -116,14 +116,6 @@ extension Query: ExpressibleByStringInterpolation {
       append(value: .init(value))
     }
 
-    public mutating func appendInterpolation(_ value: UInt64) {
-      append(value: .init(value))
-    }
-
-    public mutating func appendInterpolation(_ value: UInt64?) {
-      append(value: .init(value))
-    }
-
     public mutating func appendInterpolation(_ value: Float) {
       append(value: .init(value))
     }

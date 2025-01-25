@@ -1,6 +1,10 @@
 import RetryableTask
 import Tracing
 
+#if canImport(Foundation)
+  import class Foundation.DateFormatter
+#endif
+
 extension BigQuery {
 
   public enum QueryError: Error {
@@ -180,6 +184,40 @@ extension BigQuery {
           }
         }
       }
+    case .bool(let value):
+      return .with {
+        if let value {
+          $0.value = .with {
+            $0.value = value ? "TRUE" : "FALSE"
+          }
+        }
+      }
+    case .int64(let value):
+      return .with {
+        if let value {
+          $0.value = .with {
+            $0.value = String(value)
+          }
+        }
+      }
+    case .float64(let value):
+      return .with {
+        if let value {
+          $0.value = .with {
+            $0.value = String(value)
+          }
+        }
+      }
+    #if canImport(Foundation)
+      case .timestamp(let value):
+        return .with {
+          if let value {
+            $0.value = .with {
+              $0.value = DateFormatter.bigQuery.string(from: value)
+            }
+          }
+        }
+    #endif
     case .array(let values):
       return .with {
         $0.arrayValues = values.map { encode(parameterValue: $0.storage) }

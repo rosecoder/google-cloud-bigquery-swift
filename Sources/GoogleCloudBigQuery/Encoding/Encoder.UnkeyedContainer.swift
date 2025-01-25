@@ -190,7 +190,16 @@ extension Encoder {
         }
 
         mutating func encode(_ value: UInt64) throws {
-            try write(value: Buffer(value: .actual(.init(value))))
+            if value > UInt64(Int64.max) {
+                throw EncodingError.invalidValue(
+                    value,
+                    EncodingError.Context(
+                        codingPath: codingPath,
+                        debugDescription: "UInt64 is not yet supported"
+                    )
+                )
+            }
+            try write(value: Buffer(value: .actual(.init(Int64(value)))))
         }
 
         mutating func encode<T>(_ value: T) throws where T: Encodable {

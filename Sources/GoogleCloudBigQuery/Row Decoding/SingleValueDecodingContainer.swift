@@ -3,14 +3,6 @@ import SwiftProtobuf
 #if canImport(Foundation)
   import struct Foundation.Date
   import class Foundation.DateFormatter
-  import struct Foundation.TimeZone
-
-  private let dateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS 'UTC'"
-    formatter.timeZone = TimeZone(identifier: "UTC")
-    return formatter
-  }()
 #endif
 
 extension RowDecoder {
@@ -135,7 +127,7 @@ extension RowDecoder {
             if let timestamp = Double(value) {
               return Date(timeIntervalSince1970: timestamp) as! T
             }
-            if let date = dateFormatter.date(from: value) {
+            if let date = DateFormatter.bigQuery.date(from: value) {
               return date as! T
             }
             throw EncodingError.invalidValue(

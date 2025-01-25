@@ -18,21 +18,22 @@ import OrderedCollections
 /// See data types: https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types. Note that struct and array needs generics specified: https://cloud.google.com/bigquery/docs/parameterized-queries#using_structs_in_parameterized_queries
 public struct BigQueryValue: Sendable, Equatable {
 
-    public var storage: Storage
-    public var type: BigQueryType
+    var storage: Storage
+    var type: BigQueryType
 
-    public init(stringValue: String?, type: BigQueryType) {
-        self.storage = .string(stringValue)
-        self.type = type
-    }
-
-    public init(value: Storage, type: BigQueryType) {
+    init(value: Storage, type: BigQueryType) {
         self.storage = value
         self.type = type
     }
 
-    public indirect enum Storage: Sendable, Equatable {
+    indirect enum Storage: Sendable, Equatable {
         case string(String?)
+        case bool(Bool?)
+        case int64(Int64?)
+        case float64(Double?)
+        #if canImport(Foundation)
+            case timestamp(Date?)
+        #endif
         case array([BigQueryValue])
         case `struct`(OrderedDictionary<String, BigQueryValue>?)
     }
@@ -41,64 +42,60 @@ public struct BigQueryValue: Sendable, Equatable {
 extension BigQueryValue {
 
     public init(_ value: Bool?) {
-        self.init(stringValue: value.map { $0 ? "TRUE" : "FALSE" }, type: .bool)
+        self.init(value: .bool(value), type: .bool)
     }
 
     public init(_ value: String?) {
-        self.init(stringValue: value, type: .string)
+        self.init(value: .string(value), type: .string)
     }
 
     public init(_ value: Double?) {
-        self.init(stringValue: value.map { String($0) }, type: .float64)
+        self.init(value: .float64(value), type: .float64)
     }
 
     public init(_ value: Float?) {
-        self.init(stringValue: value.map { String($0) }, type: .float64)
+        self.init(value: .float64(value.map { Double($0) }), type: .float64)
     }
 
     public init(_ value: Int?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
+        self.init(value: .int64(value.map { Int64($0) }), type: .int64)
     }
 
     public init(_ value: Int8?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
+        self.init(value: .int64(value.map { Int64($0) }), type: .int64)
     }
 
     public init(_ value: Int16?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
+        self.init(value: .int64(value.map { Int64($0) }), type: .int64)
     }
 
     public init(_ value: Int32?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
+        self.init(value: .int64(value.map { Int64($0) }), type: .int64)
     }
 
     public init(_ value: Int64?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
+        self.init(value: .int64(value), type: .int64)
     }
 
     public init(_ value: UInt?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
+        self.init(value: .int64(value.map { Int64($0) }), type: .int64)
     }
 
     public init(_ value: UInt8?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
+        self.init(value: .int64(value.map { Int64($0) }), type: .int64)
     }
 
     public init(_ value: UInt16?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
+        self.init(value: .int64(value.map { Int64($0) }), type: .int64)
     }
 
     public init(_ value: UInt32?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
-    }
-
-    public init(_ value: UInt64?) {
-        self.init(stringValue: value.map { String($0) }, type: .int64)
+        self.init(value: .int64(value.map { Int64($0) }), type: .int64)
     }
 
     #if canImport(Foundation)
         public init(_ value: Date?) {
-            self.init(stringValue: value.map { dateFormatter.string(from: $0) }, type: .timestamp)
+            self.init(value: .timestamp(value), type: .timestamp)
         }
     #endif
 }
