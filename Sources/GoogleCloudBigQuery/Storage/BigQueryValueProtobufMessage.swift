@@ -237,11 +237,16 @@ extension BigQueryType {
                 $0.label = .repeated
                 let elementDescriptor = elementType.protoDescriptor(nestedTypes: &nestedTypes)
                 $0.type = elementDescriptor.type
-                $0.typeName = elementDescriptor.typeName
+                if elementDescriptor.type == .message {
+                    $0.typeName = elementDescriptor.typeName
+                }
             case .struct(let `struct`):
                 $0.type = .message
-                $0.typeName = "N\(nestedTypes.count)"
-                nestedTypes.append(GoogleCloudBigQuery.protoDescriptor(record: `struct`))
+                let nestedTypeName = "BqMessage.N\(nestedTypes.count)"
+                $0.typeName = nestedTypeName
+                var nestedMessage = GoogleCloudBigQuery.protoDescriptor(record: `struct`)
+                nestedMessage.name = "N\(nestedTypes.count)"
+                nestedTypes.append(nestedMessage)
             }
         }
     }

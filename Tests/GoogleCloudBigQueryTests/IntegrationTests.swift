@@ -1,8 +1,7 @@
 import Foundation
+import GoogleCloudBigQuery
 import GoogleCloudServiceContext
 import Testing
-
-@testable import GoogleCloudBigQuery
 
 @Suite(
     .serialized,
@@ -97,13 +96,19 @@ final class IntegrationTests {
             (
                 a_string,
                 a_int,
-                a_timestamp
+                a_timestamp,
+                a_record,
+                a_array
             )
             VALUES
             (
                 "Hello, world!",
                 1,
-                CURRENT_TIMESTAMP()
+                CURRENT_TIMESTAMP(),
+                STRUCT(
+                    123 AS a_int
+                ),
+                ["a", "b"]
             )
             """
         )
@@ -119,12 +124,33 @@ final class IntegrationTests {
                 "a_int": .int64,
                 "a_timestamp": .timestamp,
                 "a_nullable_string": .string,
+                "a_record": .struct([
+                    "a_int": .int64
+                ]),
+                "a_array": .array(.string),
             ])
 
             let a_string: String
             let a_int: Int
             let a_timestamp: Date
             let a_nullable_string: String?
+            let a_record: SomeRecord
+            let a_array: [String]
+
+            func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(a_string, forKey: .a_string)
+                try container.encode(a_int, forKey: .a_int)
+                try container.encode(a_timestamp, forKey: .a_timestamp)
+                try container.encode(a_nullable_string, forKey: .a_nullable_string)
+                try container.encode(a_record, forKey: .a_record)
+                try container.encode(a_array, forKey: .a_array)
+            }
+        }
+
+        struct SomeRecord: Codable {
+
+            let a_int: Int
         }
 
         try await bigQuery.batchWrite(datasetID: "my_dataset", tableID: "my_table") { stream in
@@ -132,25 +158,42 @@ final class IntegrationTests {
             // Insert single row
             try await stream.write(
                 row: Row(
-                    a_string: "This is row 1", a_int: 1, a_timestamp: Date(), a_nullable_string: nil
+                    a_string: "This is row 1",
+                    a_int: 1,
+                    a_timestamp: Date(),
+                    a_nullable_string: nil,
+                    a_record: SomeRecord(a_int: -1),
+                    a_array: ["a", "b"]
                 ))
 
             // Insert single row again
             try await stream.write(
                 row: Row(
-                    a_string: "This is row 2", a_int: 2, a_timestamp: Date(), a_nullable_string: nil
+                    a_string: "This is row 2",
+                    a_int: 2,
+                    a_timestamp: Date(),
+                    a_nullable_string: nil,
+                    a_record: SomeRecord(a_int: -2),
+                    a_array: ["c", "d"]
                 ))
 
             // Insert multiple rows
             try await stream.write(rows: [
                 Row(
-                    a_string: "This is row 3", a_int: 3, a_timestamp: Date(), a_nullable_string: nil
+                    a_string: "This is row 3",
+                    a_int: 3,
+                    a_timestamp: Date(),
+                    a_nullable_string: nil,
+                    a_record: SomeRecord(a_int: -3),
+                    a_array: ["e", "f"]
                 ),
                 Row(
                     a_string: "This is row 4",
                     a_int: 4,
                     a_timestamp: Date(),
-                    a_nullable_string: "Still row 4"
+                    a_nullable_string: "Still row 4",
+                    a_record: SomeRecord(a_int: -4),
+                    a_array: ["g", "h"]
                 ),
             ])
         }
