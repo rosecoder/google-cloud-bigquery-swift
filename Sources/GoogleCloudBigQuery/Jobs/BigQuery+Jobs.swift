@@ -161,14 +161,14 @@ extension BigQuery {
     }
   }
 
-  private func encode(parameter: Query.Parameter) -> Google_Cloud_Bigquery_V2_QueryParameter {
+  private func encode(parameter: BigQueryValue) -> Google_Cloud_Bigquery_V2_QueryParameter {
     return .with {
       $0.parameterType = encode(parameterType: parameter.type)
-      $0.parameterValue = encode(parameterValue: parameter.value)
+      $0.parameterValue = encode(parameterValue: parameter.storage)
     }
   }
 
-  private func encode(parameterValue value: Query.Parameter.Value)
+  private func encode(parameterValue value: BigQueryValue.Storage)
     -> Google_Cloud_Bigquery_V2_QueryParameterValue
   {
     switch value {
@@ -182,13 +182,14 @@ extension BigQuery {
       }
     case .array(let values):
       return .with {
-        $0.arrayValues = values.compactMap(encode)
+        $0.arrayValues = values.map { encode(parameterValue: $0.storage) }
       }
     case .struct(let values):
       return .with {
         if let values {
           $0.structValues = Dictionary(
-            uniqueKeysWithValues: values.mapValues(encode).map { key, value in
+            uniqueKeysWithValues: values.mapValues { encode(parameterValue: $0.storage) }.map {
+              key, value in
               (key, value)
             })
         }

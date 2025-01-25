@@ -8,24 +8,24 @@ import Testing
     @Test func shouldInitializeWithProperties() throws {
         let query = Query(
             sql: "SELECT ?",
-            parameters: [.init(value: 1)],
+            parameters: [BigQueryValue(1)],
             maxResults: 2
         )
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 1))
+        #expect(query.parameters.first == BigQueryValue(1))
         #expect(query.maxResults == 2)
     }
 
     @Test func shouldInitializeWithPropertiesWithUnsafeSQL() throws {
         let query = Query(
             unsafeSQL: "SELECT" + " ?",
-            parameters: [.init(value: 1)],
+            parameters: [BigQueryValue(1)],
             maxResults: 2
         )
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 1))
+        #expect(query.parameters.first == BigQueryValue(1))
         #expect(query.maxResults == 2)
     }
 
@@ -39,15 +39,15 @@ import Testing
         let query: Query = "SELECT \(1)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 1))
+        #expect(query.parameters.first == BigQueryValue(1))
     }
 
     @Test func shouldInitializeFromMultipleInterpolation() throws {
         let query: Query = "SELECT \(1), \("Test")"
         #expect(query.sql == "SELECT ?, ?")
         #expect(query.parameters.count == 2)
-        #expect(query.parameters.first == .init(value: 1))
-        #expect(query.parameters.last == .init(value: "Test"))
+        #expect(query.parameters.first == BigQueryValue(1))
+        #expect(query.parameters.last == BigQueryValue("Test"))
     }
 
     @Test func shouldInitializeFromInterpolationWithStringUnsafe() throws {
@@ -60,28 +60,28 @@ import Testing
         let query: Query = "SELECT \("test")"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: "test"))
+        #expect(query.parameters.first == BigQueryValue("test"))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeStringNil() throws {
         let query: Query = "SELECT \(nil as String?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as String?))
+        #expect(query.parameters.first == BigQueryValue(nil as String?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt() throws {
         let query: Query = "SELECT \(1)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 1))
+        #expect(query.parameters.first == BigQueryValue(1))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeIntNil() throws {
         let query: Query = "SELECT \(nil as Int?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as Int?))
+        #expect(query.parameters.first == BigQueryValue(nil as Int?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt8() throws {
@@ -89,14 +89,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 8))
+        #expect(query.parameters.first == BigQueryValue(8))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt8Nil() throws {
         let query: Query = "SELECT \(nil as Int8?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as Int8?))
+        #expect(query.parameters.first == BigQueryValue(nil as Int8?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt16() throws {
@@ -104,14 +104,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 16))
+        #expect(query.parameters.first == BigQueryValue(16))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt16Nil() throws {
         let query: Query = "SELECT \(nil as Int16?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as Int16?))
+        #expect(query.parameters.first == BigQueryValue(nil as Int16?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt32() throws {
@@ -119,14 +119,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 32))
+        #expect(query.parameters.first == BigQueryValue(32))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt32Nil() throws {
         let query: Query = "SELECT \(nil as Int32?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as Int32?))
+        #expect(query.parameters.first == BigQueryValue(nil as Int32?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt64() throws {
@@ -134,14 +134,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 64))
+        #expect(query.parameters.first == BigQueryValue(64))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeInt64Nil() throws {
         let query: Query = "SELECT \(nil as Int64?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as Int64?))
+        #expect(query.parameters.first == BigQueryValue(nil as Int64?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt() throws {
@@ -149,14 +149,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 1))
+        #expect(query.parameters.first == BigQueryValue(1))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUIntNil() throws {
         let query: Query = "SELECT \(nil as UInt?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as UInt?))
+        #expect(query.parameters.first == BigQueryValue(nil as UInt?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt8() throws {
@@ -164,14 +164,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 8))
+        #expect(query.parameters.first == BigQueryValue(8))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt8Nil() throws {
         let query: Query = "SELECT \(nil as UInt8?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as UInt8?))
+        #expect(query.parameters.first == BigQueryValue(nil as UInt8?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt16() throws {
@@ -179,14 +179,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 16))
+        #expect(query.parameters.first == BigQueryValue(16))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt16Nil() throws {
         let query: Query = "SELECT \(nil as UInt16?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as UInt16?))
+        #expect(query.parameters.first == BigQueryValue(nil as UInt16?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt32() throws {
@@ -194,14 +194,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 32))
+        #expect(query.parameters.first == BigQueryValue(32))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt32Nil() throws {
         let query: Query = "SELECT \(nil as UInt32?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as UInt32?))
+        #expect(query.parameters.first == BigQueryValue(nil as UInt32?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt64() throws {
@@ -209,14 +209,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 64))
+        #expect(query.parameters.first == BigQueryValue(64))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeUInt64Nil() throws {
         let query: Query = "SELECT \(nil as UInt64?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as UInt64?))
+        #expect(query.parameters.first == BigQueryValue(nil as UInt64?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeFloat() throws {
@@ -224,14 +224,14 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 3.14))
+        #expect(query.parameters.first == BigQueryValue(3.14))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeFloatNil() throws {
         let query: Query = "SELECT \(nil as Float?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as Float?))
+        #expect(query.parameters.first == BigQueryValue(nil as Float?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeDouble() throws {
@@ -239,28 +239,28 @@ import Testing
         let query: Query = "SELECT \(value)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: 3.14159))
+        #expect(query.parameters.first == BigQueryValue(3.14159))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeDoubleNil() throws {
         let query: Query = "SELECT \(nil as Double?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as Double?))
+        #expect(query.parameters.first == BigQueryValue(nil as Double?))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeBool() throws {
         let query: Query = "SELECT \(true)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: true))
+        #expect(query.parameters.first == BigQueryValue(true))
     }
 
     @Test func shouldInitializeFromInterpolationWithTypeBoolNil() throws {
         let query: Query = "SELECT \(nil as Bool?)"
         #expect(query.sql == "SELECT ?")
         #expect(query.parameters.count == 1)
-        #expect(query.parameters.first == .init(value: nil as Bool?))
+        #expect(query.parameters.first == BigQueryValue(nil as Bool?))
     }
 
     @Test func shouldInitializeFromInterpolationWithEncodableAsStruct() throws {
@@ -277,12 +277,12 @@ import Testing
         #expect(query.parameters.count == 1)
         #expect(
             query.parameters.first
-                == .init(
+                == BigQueryValue(
                     value:
                         .struct([
-                            "string": .string("Hello, World!"),
-                            "int": .string("1"),
-                            "bool": .string("TRUE"),
+                            "string": BigQueryValue("Hello, World!"),
+                            "int": BigQueryValue(1),
+                            "bool": BigQueryValue(true),
                         ]),
                     type: .struct([
                         "string": .string,
@@ -298,13 +298,14 @@ import Testing
         #expect(query.parameters.count == 1)
         #expect(
             query.parameters.first
-                == .init(
+                == BigQueryValue(
                     value:
                         .array([
-                            .string("1"),
-                            .string("2"),
-                            .string("3"),
-                        ]), type: .array(.int64))
+                            BigQueryValue(1),
+                            BigQueryValue(2),
+                            BigQueryValue(3),
+                        ]),
+                    type: .array(.int64))
         )
     }
 
@@ -327,9 +328,14 @@ import Testing
         #expect(query.parameters.count == 1)
         #expect(
             query.parameters.first
-                == .init(
-                    value: .struct(["children": .array([])]),
-                    type: .struct(["children": .array(.bool)])))
+                == BigQueryValue(
+                    value:
+                        .struct([
+                            "children": BigQueryValue(value: .array([]), type: .array(.bool)),
+                        ]),
+                    type: .struct(["children": .array(.bool)])
+                )
+        )
     }
 
     @Test func shouldInitializeFromInterpolationWithEncodableWithManyLevels() throws {
@@ -360,15 +366,27 @@ import Testing
         #expect(query.parameters.count == 1)
         #expect(
             query.parameters.first
-                == .init(
+                == BigQueryValue(
                     value:
                         .struct([
-                            "string": .string("l1"),
-                            "children": .array([
-                                .struct(["prop": .string("1")]),
-                                .struct(["prop": .string("2")]),
-                            ]),
-                            "child": .struct(["prop": .string("3")]),
+                            "string": BigQueryValue("l1"),
+                            "children": BigQueryValue(
+                                value: .array([
+                                    BigQueryValue(
+                                        value: .struct(["prop": BigQueryValue(1)]),
+                                        type: .struct(["prop": .int64])
+                                    ),
+                                    BigQueryValue(
+                                        value: .struct(["prop": BigQueryValue(2)]),
+                                        type: .struct(["prop": .int64])
+                                    ),
+                                ]),
+                                type: .array(.struct(["prop": .int64]))
+                            ),
+                            "child": BigQueryValue(
+                                value: .struct(["prop": BigQueryValue(3)]),
+                                type: .struct(["prop": .int64])
+                            ),
                         ]),
                     type: .struct([
                         "string": .string,
@@ -413,10 +431,10 @@ import Testing
         #expect(query.parameters.count == 1)
         #expect(
             query.parameters.first
-                == .init(
+                == BigQueryValue(
                     value: .struct([
-                        "string": .string("Hello, World!"),
-                        "int": .string("1"),
+                        "string": BigQueryValue("Hello, World!"),
+                        "int": BigQueryValue(1),
                     ]),
                     type: .struct([
                         "string": .string,
@@ -457,8 +475,7 @@ import Testing
             query.parameters.first
                 == .init(
                     value: .struct([
-                        "string": .string(nil),
-                        "int": .string("1"),
+                        "int": BigQueryValue(1),
                     ]),
                     type: .struct([
                         "string": .string,

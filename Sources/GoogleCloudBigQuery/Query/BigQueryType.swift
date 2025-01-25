@@ -51,18 +51,18 @@ public indirect enum BigQueryType: Sendable, Equatable {
         }
     }
 
-    var nullValue: Query.Parameter {
+    var nullValue: BigQueryValue {
         switch self {
         case .string:
-            return .init(value: nil, type: .string)
+            return .init(stringValue: nil, type: .string)
         case .int64:
-            return .init(value: nil, type: .int64)
+            return .init(stringValue: nil, type: .int64)
         case .float64:
-            return .init(value: nil, type: .float64)
+            return .init(stringValue: nil, type: .float64)
         case .bool:
-            return .init(value: nil, type: .bool)
+            return .init(stringValue: nil, type: .bool)
         case .timestamp:
-            return .init(value: nil, type: .timestamp)
+            return .init(stringValue: nil, type: .timestamp)
         case .array(let elementType):
             return .init(value: .array([]), type: .array(elementType))
         case .struct(let elementType):
