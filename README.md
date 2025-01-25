@@ -2,13 +2,18 @@
 
 A Swift implementation for interacting with Google Cloud BigQuery, designed as a server-first solution.
 
+The vision of this package is to provide a high-level, but still performant, way to interact with BigQuery from Swift. This using Swift-native features like `Codable` and strict concurrency.
+
 ## Features
 
-- Querying using type safe string interpolation.
+- Querying – using type safe string interpolation.
+- Batch writing – using [Storage Write API](https://cloud.google.com/bigquery/docs/write-api).
 
-Yes, that's it. It's a early work in progress package.
+Yes, that's it. It's a early work in progress package. Feel free to contrinubte with either creating an issue or a pull request.
 
 ## Usage
+
+### Querying
 
 ```swift
 let bigQuery = try await BigQuery()
@@ -19,9 +24,10 @@ struct Row: Decodable {
     let someField: String
 }
 
-let result = try await bigQuery.query("""
-    SELECT someField FROM `my_dataset.my_table`
-""", as: Row.self)
+let result = try await bigQuery.query(
+    "SELECT someField FROM `my_dataset.my_table`",
+    as: Row.self
+)
 ```
 
 String interpolation to paramaterize queries is also supported. For example:
@@ -50,6 +56,25 @@ let query: Query = """
 """
 
 try await bigQuery.query(query)
+```
+
+### Batch writing
+
+The batch writing is a powerful feature that allows you to write many rows in a single stream. The stream handles retries and in-order delivery in a safe way. The data is commited first after all rows have been sent to BigQuery.
+
+```swift
+struct Row: Encodable {
+
+    let id: Int
+    let name: String
+}
+
+try await bigQuery.batchWrite(datasetID: "my_dataset", tableID: "my_table") { stream in
+    try await stream.write(rows: [
+        Row(id: 1, name: "John"),
+        Row(id: 2, name: "Jane"),
+    ])
+}
 ```
 
 ## Development
