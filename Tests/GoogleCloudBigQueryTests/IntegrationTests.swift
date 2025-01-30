@@ -1,11 +1,12 @@
 import Foundation
+import GoogleCloudAuthTesting
 import GoogleCloudBigQuery
 import GoogleCloudServiceContext
 import Testing
 
 @Suite(
   .serialized,
-  .enabled(if: ProcessInfo.processInfo.environment["GOOGLE_APPLICATION_CREDENTIALS"] != nil)
+  .enabledIfAuthenticatedWithGoogleCloud
 )
 final class IntegrationTests {
 
