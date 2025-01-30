@@ -16,18 +16,18 @@ Yes, that's it. It's a early work in progress package. Feel free to contrinubte 
 ### Querying
 
 ```swift
-let bigQuery = try await BigQuery()
-Task { bigQuery.run() }
-
 struct Row: Decodable {
 
     let someField: String
 }
 
-let result = try await bigQuery.query(
-    "SELECT someField FROM `my_dataset.my_table`",
-    as: Row.self
-)
+try await withBigQuery { bigQuery in
+    let result = try await bigQuery.query(
+        "SELECT someField FROM `my_dataset.my_table`",
+        as: Row.self
+    )
+    // result.rows contains rows returned from BigQuery
+}
 ```
 
 String interpolation to paramaterize queries is also supported. For example:
