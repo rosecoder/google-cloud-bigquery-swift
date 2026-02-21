@@ -28,32 +28,30 @@ extension BigQuery {
                 "\(destination.datasetID).\(destination.tableID)"
 
             // Insert the load job.
+            // The REST API for jobs.insert expects a Job resource as the body (project ID is in the URL).
             let job: Google_Cloud_Bigquery_V2_Job = try await withRetryableTask(
                 logger: logger,
                 operation: {
                     try await request(
                         method: .POST, path: "/jobs",
-                        body: Google_Cloud_Bigquery_V2_InsertJobRequest.with {
-                            $0.projectID = self.projectID
-                            $0.job = .with {
-                                $0.configuration = .with {
-                                    $0.load = .with {
-                                        $0.sourceUris = sourceURIs
-                                        $0.sourceFormat = configuration.sourceFormat.rawValue
-                                        $0.writeDisposition = configuration.writeDisposition.rawValue
-                                        $0.createDisposition = configuration.createDisposition.rawValue
-                                        $0.autodetect = .with { $0.value = configuration.autodetect }
-                                        $0.destinationTable = .with {
-                                            $0.projectID = self.projectID
-                                            $0.datasetID = destination.datasetID
-                                            $0.tableID = destination.tableID
-                                        }
+                        body: Google_Cloud_Bigquery_V2_Job.with {
+                            $0.configuration = .with {
+                                $0.load = .with {
+                                    $0.sourceUris = sourceURIs
+                                    $0.sourceFormat = configuration.sourceFormat.rawValue
+                                    $0.writeDisposition = configuration.writeDisposition.rawValue
+                                    $0.createDisposition = configuration.createDisposition.rawValue
+                                    $0.autodetect = .with { $0.value = configuration.autodetect }
+                                    $0.destinationTable = .with {
+                                        $0.projectID = self.projectID
+                                        $0.datasetID = destination.datasetID
+                                        $0.tableID = destination.tableID
                                     }
                                 }
-                                if let location {
-                                    $0.jobReference = .with {
-                                        $0.location = .with { $0.value = location }
-                                    }
+                            }
+                            if let location {
+                                $0.jobReference = .with {
+                                    $0.location = .with { $0.value = location }
                                 }
                             }
                         })
