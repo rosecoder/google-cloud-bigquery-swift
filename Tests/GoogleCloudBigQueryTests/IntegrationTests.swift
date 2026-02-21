@@ -103,6 +103,20 @@ struct IntegrationTests {
     }
   }
 
+  @Test func shouldLoadFromGCS() async throws {
+    try await withBigQuery { bigQuery in
+      try await bigQuery.loadJob(
+        from: ["gs://my-bucket/my-file.csv"],
+        into: LoadDestination(datasetID: "my_dataset", tableID: "my_table"),
+        configuration: LoadJobConfiguration(
+          sourceFormat: .csv,
+          writeDisposition: .truncate,
+          autodetect: true
+        )
+      )
+    }
+  }
+
   @Test func shouldWriteWithStorageWrite() async throws {
     try await withBigQuery { bigQuery in
 
