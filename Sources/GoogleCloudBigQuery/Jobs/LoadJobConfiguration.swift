@@ -41,17 +41,72 @@ public struct LoadJobConfiguration: Sendable {
     public var writeDisposition: WriteDisposition
     public var createDisposition: CreateDisposition
     public var autodetect: Bool
+    /// Explicit schema for the destination table. Required when `autodetect` is `false`
+    /// and the destination table does not already have a schema.
+    public var schema: BigQuerySchema?
 
     public init(
         sourceFormat: SourceFormat = .csv,
         writeDisposition: WriteDisposition = .append,
         createDisposition: CreateDisposition = .ifNeeded,
-        autodetect: Bool = false
+        autodetect: Bool = false,
+        schema: BigQuerySchema? = nil
     ) {
         self.sourceFormat = sourceFormat
         self.writeDisposition = writeDisposition
         self.createDisposition = createDisposition
         self.autodetect = autodetect
+        self.schema = schema
+    }
+}
+
+// MARK: - Schema types
+
+public struct BigQuerySchema: Sendable {
+
+    public struct Field: Sendable {
+
+        public enum FieldType: String, Sendable {
+            case string = "STRING"
+            case bytes = "BYTES"
+            case integer = "INTEGER"
+            case float = "FLOAT"
+            case boolean = "BOOLEAN"
+            case timestamp = "TIMESTAMP"
+            case date = "DATE"
+            case time = "TIME"
+            case datetime = "DATETIME"
+            case geography = "GEOGRAPHY"
+            case numeric = "NUMERIC"
+            case bignumeric = "BIGNUMERIC"
+            case json = "JSON"
+            case record = "RECORD"
+        }
+
+        public enum Mode: String, Sendable {
+            case nullable = "NULLABLE"
+            case required = "REQUIRED"
+            case repeated = "REPEATED"
+        }
+
+        public var name: String
+        public var type: FieldType
+        public var mode: Mode
+        /// Nested fields, only valid when `type` is `.record`.
+        public var fields: [Field]
+
+        public init(name: String, type: FieldType, mode: Mode = .nullable, fields: [Field] = []) {
+            self.name = name
+            self.type = type
+            self.mode = mode
+            self.fields = fields
+        }
+    }
+
+    public var fields: [Field]
+
+    public init(fields: [Field]) {
+        self.fields = fields
     }
 }
 

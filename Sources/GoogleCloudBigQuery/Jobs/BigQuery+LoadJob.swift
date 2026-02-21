@@ -42,6 +42,11 @@ extension BigQuery {
                                     $0.writeDisposition = configuration.writeDisposition.rawValue
                                     $0.createDisposition = configuration.createDisposition.rawValue
                                     $0.autodetect = .with { $0.value = configuration.autodetect }
+                                    if let schema = configuration.schema {
+                                        $0.schema = .with {
+                                            $0.fields = schema.fields.map(Self.protoField)
+                                        }
+                                    }
                                     $0.destinationTable = .with {
                                         $0.projectID = self.projectID
                                         $0.datasetID = destination.datasetID
@@ -100,6 +105,15 @@ extension BigQuery {
                     continue
                 }
             }
+        }
+    }
+
+    private static func protoField(_ field: BigQuerySchema.Field) -> Google_Cloud_Bigquery_V2_TableFieldSchema {
+        .with {
+            $0.name = field.name
+            $0.type = field.type.rawValue
+            $0.mode = field.mode.rawValue
+            $0.fields = field.fields.map(protoField)
         }
     }
 }
