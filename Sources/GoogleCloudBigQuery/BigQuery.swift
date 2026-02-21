@@ -141,6 +141,21 @@ public final class BigQuery: BigQueryProtocol, Service {
 
   func request<Body: Message>(
     method: HTTPMethod,
+    path: String
+  ) async throws -> Body {
+    let accessToken = try await authorization.accessToken()
+
+    var request = HTTPClientRequest(
+      url: "https://bigquery.googleapis.com/bigquery/v2/projects/\(projectID)" + path)
+    request.method = method
+    request.headers.add(name: "Authorization", value: "Bearer " + accessToken)
+
+    let response = try await httpClient.execute(request, timeout: .seconds(30))
+    return try await handle(response: response)
+  }
+
+  func request<Body: Message>(
+    method: HTTPMethod,
     path: String,
     body: some Message
   ) async throws -> Body {

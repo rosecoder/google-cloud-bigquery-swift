@@ -82,7 +82,7 @@ extension BigQuery {
                 }
 
                 let status: Google_Cloud_Bigquery_V2_Job = try await request(
-                    method: .GET, path: pollPath, body: Google_Cloud_Bigquery_V2_GetJobRequest())
+                    method: .GET, path: pollPath)
 
                 switch status.status.state {
                 case "DONE":
