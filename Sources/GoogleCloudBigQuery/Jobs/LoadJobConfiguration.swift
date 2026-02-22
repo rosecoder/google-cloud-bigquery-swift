@@ -1,4 +1,4 @@
-public struct LoadJobConfiguration: Sendable {
+public struct LoadJobConfiguration: Sendable, Codable {
     public enum SourceFormat: Sendable {
         case csv, newlineDelimitedJSON, avro, parquet, orc, datastoreBackup
 
@@ -60,13 +60,80 @@ public struct LoadJobConfiguration: Sendable {
     }
 }
 
+// MARK: - Codable for enums with computed rawValue
+
+extension LoadJobConfiguration.SourceFormat: Codable {
+    public init(from decoder: Swift.Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        switch try container.decode(String.self) {
+        case "CSV":                    self = .csv
+        case "NEWLINE_DELIMITED_JSON": self = .newlineDelimitedJSON
+        case "AVRO":                   self = .avro
+        case "PARQUET":                self = .parquet
+        case "ORC":                    self = .orc
+        case "DATASTORE_BACKUP":       self = .datastoreBackup
+        case let unknown:
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unknown SourceFormat '\(unknown)'"
+            )
+        }
+    }
+
+    public func encode(to encoder: Swift.Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+extension LoadJobConfiguration.WriteDisposition: Codable {
+    public init(from decoder: Swift.Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        switch try container.decode(String.self) {
+        case "WRITE_APPEND":   self = .append
+        case "WRITE_TRUNCATE": self = .truncate
+        case "WRITE_EMPTY":    self = .empty
+        case let unknown:
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unknown WriteDisposition '\(unknown)'"
+            )
+        }
+    }
+
+    public func encode(to encoder: Swift.Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+extension LoadJobConfiguration.CreateDisposition: Codable {
+    public init(from decoder: Swift.Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        switch try container.decode(String.self) {
+        case "CREATE_IF_NEEDED": self = .ifNeeded
+        case "CREATE_NEVER":     self = .never
+        case let unknown:
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unknown CreateDisposition '\(unknown)'"
+            )
+        }
+    }
+
+    public func encode(to encoder: Swift.Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
 // MARK: - Schema types
 
-public struct BigQuerySchema: Sendable {
+public struct BigQuerySchema: Sendable, Codable {
 
-    public struct Field: Sendable {
+    public struct Field: Sendable, Codable {
 
-        public enum FieldType: String, Sendable {
+        public enum FieldType: String, Sendable, Codable {
             case string = "STRING"
             case bytes = "BYTES"
             case integer = "INTEGER"
@@ -83,7 +150,7 @@ public struct BigQuerySchema: Sendable {
             case record = "RECORD"
         }
 
-        public enum Mode: String, Sendable {
+        public enum Mode: String, Sendable, Codable {
             case nullable = "NULLABLE"
             case required = "REQUIRED"
             case repeated = "REPEATED"
