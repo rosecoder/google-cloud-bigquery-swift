@@ -30,6 +30,10 @@ extension Encoder {
     }
 
     mutating func encode(_ value: String) throws {
+      if bigQueryType == .json {
+        buffer.value = .actual(.init(BigQueryJSON(text: value)))
+        return
+      }
       buffer.value = .actual(.init(value))
     }
 

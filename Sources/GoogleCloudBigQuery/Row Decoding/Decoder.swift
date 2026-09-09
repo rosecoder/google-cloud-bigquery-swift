@@ -48,6 +48,12 @@ struct RowDecoder {
       )
     }
 
+    // JSON columns are returned as JSON text. Parse it so it can be decoded into any
+    // `Decodable` type. See: https://cloud.google.com/bigquery/docs/json-data
+    if schema.type == "JSON", case .stringValue(let text) = unwrapped.kind {
+      return try parseJSON(text)
+    }
+
     // Recursively unwrap nested structures
     switch unwrapped.kind {
     case .structValue(let structValue):
@@ -80,6 +86,20 @@ struct RowDecoder {
       return result
     default:
       return unwrapped
+    }
+  }
+
+  private func parseJSON(_ text: String) throws -> Google_Protobuf_Value {
+    do {
+      return try Google_Protobuf_Value(jsonString: text)
+    } catch {
+      throw DecodingError.dataCorrupted(
+        DecodingError.Context(
+          codingPath: [],
+          debugDescription: "Invalid JSON value",
+          underlyingError: error
+        )
+      )
     }
   }
 

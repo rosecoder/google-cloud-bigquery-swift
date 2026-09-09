@@ -65,6 +65,13 @@ struct BigQueryValueProtobufMessage: SwiftProtobuf.Message {
             fieldNumber: fieldNumber
           )
         }
+      case (.json, .json(let value)):
+        if let value {
+          try visitor.visitSingularStringField(
+            value: value,
+            fieldNumber: fieldNumber
+          )
+        }
       case (.array(let elementType), .array(let values)):
         switch elementType {
         case .string:
@@ -135,6 +142,20 @@ struct BigQueryValueProtobufMessage: SwiftProtobuf.Message {
                   EncodingError.Context(
                     codingPath: [], debugDescription: "Expected timestamp value"
                   )
+                )
+              }
+            }), fieldNumber: fieldNumber)
+        case .json:
+          try visitor.visitRepeatedStringField(
+            value: values.compactMap({
+              switch $0.storage {
+              case .json(let value):
+                return value
+              default:
+                throw EncodingError.invalidValue(
+                  $0,
+                  EncodingError.Context(
+                    codingPath: [], debugDescription: "Expected json value")
                 )
               }
             }), fieldNumber: fieldNumber)
@@ -233,6 +254,8 @@ extension BigQueryType {
         $0.type = .bool
       case .timestamp:
         $0.type = .int64
+      case .json:
+        $0.type = .string
       case .array(let elementType):
         $0.label = .repeated
         let elementDescriptor = elementType.protoDescriptor(nestedTypes: &nestedTypes)

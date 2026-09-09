@@ -73,6 +73,33 @@ struct IntegrationTests {
     }
   }
 
+  @Test func shouldQueryAndReturnRowsWithJSON() async throws {
+    try await withBigQuery { bigQuery in
+
+      struct Row: Decodable {
+
+        let payload: Payload
+        let list: [Int]
+      }
+
+      struct Payload: Codable, Equatable {
+
+        let key: String
+        let value: Int
+      }
+
+      let result = try await bigQuery.query(
+        "SELECT \(try BigQueryJSON(Payload(key: "someKey", value: 123))) AS payload, \(BigQueryJSON(text: "[1,2,3]")) AS list",
+        as: Row.self
+      )
+      #expect(result.rows.count == 1)
+
+      let row = try #require(result.rows.first)
+      #expect(row.payload == Payload(key: "someKey", value: 123))
+      #expect(row.list == [1, 2, 3])
+    }
+  }
+
   @Test func shouldQueryInsert() async throws {
     try await withBigQuery { bigQuery in
       let projectID = try #require(await ServiceContext.topLevel.projectID)
@@ -120,7 +147,7 @@ struct IntegrationTests {
   @Test func shouldWriteWithStorageWrite() async throws {
     try await withBigQuery { bigQuery in
 
-      struct Row: QueryCodable {
+      struct Row: QueryEncodable {
 
         static let bigQueryType: BigQueryType = .struct([
           "a_string": .string,
@@ -131,6 +158,7 @@ struct IntegrationTests {
             "a_int": .int64
           ]),
           "a_array": .array(.string),
+          "a_json": .json,
         ])
 
         let a_string: String
@@ -139,6 +167,17 @@ struct IntegrationTests {
         let a_nullable_string: String?
         let a_record: SomeRecord
         let a_array: [String]
+        let a_json: BigQueryJSON
+
+        enum CodingKeys: String, CodingKey {
+          case a_string
+          case a_int
+          case a_timestamp
+          case a_nullable_string
+          case a_record
+          case a_array
+          case a_json
+        }
 
         func encode(to encoder: any Swift.Encoder) throws {
           var container = encoder.container(keyedBy: CodingKeys.self)
@@ -148,6 +187,7 @@ struct IntegrationTests {
           try container.encode(a_nullable_string, forKey: .a_nullable_string)
           try container.encode(a_record, forKey: .a_record)
           try container.encode(a_array, forKey: .a_array)
+          try container.encode(a_json, forKey: .a_json)
         }
       }
 
@@ -166,7 +206,8 @@ struct IntegrationTests {
             a_timestamp: Date(),
             a_nullable_string: nil,
             a_record: SomeRecord(a_int: -1),
-            a_array: ["a", "b"]
+            a_array: ["a", "b"],
+            a_json: BigQueryJSON(text: "{\"row\":1}")
           ))
 
         // Insert single row again
@@ -177,7 +218,8 @@ struct IntegrationTests {
             a_timestamp: Date(),
             a_nullable_string: nil,
             a_record: SomeRecord(a_int: -2),
-            a_array: ["c", "d"]
+            a_array: ["c", "d"],
+            a_json: BigQueryJSON(text: "{\"row\":2}")
           ))
 
         // Insert multiple rows
@@ -188,7 +230,8 @@ struct IntegrationTests {
             a_timestamp: Date(),
             a_nullable_string: nil,
             a_record: SomeRecord(a_int: -3),
-            a_array: ["e", "f"]
+            a_array: ["e", "f"],
+            a_json: BigQueryJSON(text: "{\"row\":3}")
           ),
           Row(
             a_string: "This is row 4",
@@ -196,7 +239,8 @@ struct IntegrationTests {
             a_timestamp: Date(),
             a_nullable_string: "Still row 4",
             a_record: SomeRecord(a_int: -4),
-            a_array: ["g", "h"]
+            a_array: ["g", "h"],
+            a_json: try BigQueryJSON(SomeRecord(a_int: -4))
           ),
         ])
       }
