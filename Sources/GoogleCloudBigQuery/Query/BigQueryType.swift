@@ -11,6 +11,7 @@ public indirect enum BigQueryType: Sendable, Equatable {
   case float64
   case bool
   case timestamp
+  case json
   case array(BigQueryType)
   case `struct`(OrderedDictionary<String, BigQueryType>)
 
@@ -29,6 +30,8 @@ public indirect enum BigQueryType: Sendable, Equatable {
       return "BOOL"
     case .timestamp:
       return "TIMESTAMP"
+    case .json:
+      return "JSON"
     case .array:
       return "ARRAY"
     case .struct:
@@ -63,6 +66,8 @@ public indirect enum BigQueryType: Sendable, Equatable {
       return .init(value: .bool(nil), type: .bool)
     case .timestamp:
       return .init(value: .timestamp(nil), type: .timestamp)
+    case .json:
+      return .init(value: .json(nil), type: .json)
     case .array(let elementType):
       return .init(value: .array([]), type: .array(elementType))
     case .struct(let elementType):

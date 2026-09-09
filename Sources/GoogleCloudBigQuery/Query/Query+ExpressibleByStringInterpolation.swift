@@ -150,6 +150,14 @@ extension Query: ExpressibleByStringInterpolation {
       }
     #endif
 
+    public mutating func appendInterpolation(_ value: BigQueryJSON) {
+      append(value: .init(value))
+    }
+
+    public mutating func appendInterpolation(_ value: BigQueryJSON?) {
+      append(value: .init(value))
+    }
+
     public mutating func appendInterpolation<Element: Encodable>(_ value: Element) throws {
       try append(value)
     }

@@ -11,6 +11,7 @@ import Testing
     (BigQueryType.float64, "FLOAT64"),
     (BigQueryType.bool, "BOOL"),
     (BigQueryType.timestamp, "TIMESTAMP"),
+    (BigQueryType.json, "JSON"),
     (BigQueryType.array(.string), "ARRAY"),
     (BigQueryType.struct(["a": .string, "b": .int64]), "STRUCT"),
   ])
@@ -24,6 +25,7 @@ import Testing
     (BigQueryType.float64, "FLOAT64"),
     (BigQueryType.bool, "BOOL"),
     (BigQueryType.timestamp, "TIMESTAMP"),
+    (BigQueryType.json, "JSON"),
   ])
   func shouldReturnCompleteStringRepresentation(type: BigQueryType, expected: String) throws {
     #expect(type.completeStringRepresentation == expected)
@@ -42,8 +44,9 @@ import Testing
         "c": .float64,
         "d": .bool,
         "e": .timestamp,
+        "f": .json,
       ]).completeStringRepresentation
-        == "STRUCT<b INT64, a STRING, c FLOAT64, d BOOL, e TIMESTAMP>"
+        == "STRUCT<b INT64, a STRING, c FLOAT64, d BOOL, e TIMESTAMP, f JSON>"
     )
   }
 }

@@ -34,6 +34,7 @@ public struct BigQueryValue: Sendable, Equatable {
     #if canImport(Foundation)
       case timestamp(Date?)
     #endif
+    case json(String?)
     case array([BigQueryValue])
     case `struct`(OrderedDictionary<String, BigQueryValue>?)
   }
@@ -98,4 +99,8 @@ extension BigQueryValue {
       self.init(value: .timestamp(value), type: .timestamp)
     }
   #endif
+
+  public init(_ value: BigQueryJSON?) {
+    self.init(value: .json(value?.text), type: .json)
+  }
 }

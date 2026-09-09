@@ -399,6 +399,132 @@ import Testing
     #expect(query.parameters.first == .init(value: .timestamp(nil), type: .timestamp))
   }
 
+  @Test func shouldInitializeFromInterpolationWithTypeJSON() throws {
+    let query: Query = "SELECT \(BigQueryJSON(text: "{\"a\":1}"))"
+    #expect(query.sql == "SELECT ?")
+    #expect(query.parameters.count == 1)
+    #expect(query.parameters.first == .init(value: .json("{\"a\":1}"), type: .json))
+  }
+
+  @Test func shouldInitializeFromInterpolationWithTypeJSONNil() throws {
+    let query: Query = "SELECT \(nil as BigQueryJSON?)"
+    #expect(query.sql == "SELECT ?")
+    #expect(query.parameters.count == 1)
+    #expect(query.parameters.first == .init(value: .json(nil), type: .json))
+  }
+
+  @Test func shouldInitializeFromInterpolationWithJSONFromEncodable() throws {
+
+    struct Payload: Encodable {
+
+      let string: String
+    }
+
+    let query: Query = "SELECT \(try BigQueryJSON(Payload(string: "Hello, World!")))"
+    #expect(query.sql == "SELECT ?")
+    #expect(query.parameters.count == 1)
+    #expect(
+      query.parameters.first
+        == .init(value: .json("{\"string\":\"Hello, World!\"}"), type: .json)
+    )
+  }
+
+  @Test func shouldInitializeFromInterpolationWithJSONNestedInEncodable() throws {
+
+    struct Struct: Encodable {
+
+      let string: String
+      let payload: BigQueryJSON
+    }
+
+    let query: Query = try "SELECT \(Struct(string: "a", payload: BigQueryJSON(text: "[1,2]")))"
+    #expect(query.sql == "SELECT ?")
+    #expect(query.parameters.count == 1)
+    #expect(
+      query.parameters.first
+        == BigQueryValue(
+          value: .struct([
+            "string": BigQueryValue("a"),
+            "payload": BigQueryValue(BigQueryJSON(text: "[1,2]")),
+          ]),
+          type: .struct([
+            "string": .string,
+            "payload": .json,
+          ])
+        )
+    )
+  }
+
+  @Test func shouldInitializeFromInterpolationWithJSONNilNestedInQueryEncodable() throws {
+
+    struct Struct: QueryEncodable {
+
+      static let bigQueryType: BigQueryType = .struct([
+        "payload": .json
+      ])
+
+      let payload: BigQueryJSON?
+    }
+
+    let query: Query = try "SELECT \(Struct(payload: nil))"
+    #expect(query.sql == "SELECT ?")
+    #expect(query.parameters.count == 1)
+    #expect(
+      query.parameters.first
+        == BigQueryValue(
+          value: .struct(nil),
+          type: .struct(["payload": .json])
+        )
+    )
+  }
+
+  @Test func shouldEncodeNilJSON() throws {
+    let encoder = Encoder(for: BigQueryJSON?.self)
+    try (nil as BigQueryJSON?).encode(to: encoder)
+    #expect(try encoder.bigQueryValue() == .init(value: .json(nil), type: .json))
+  }
+
+  @Test func shouldInitializeFromInterpolationWithStringAsJSONInQueryEncodable() throws {
+
+    struct Struct: QueryEncodable {
+
+      static let bigQueryType: BigQueryType = .struct([
+        "payload": .json
+      ])
+
+      let payload: String
+    }
+
+    let query: Query = try "SELECT \(Struct(payload: "{\"a\":1}"))"
+    #expect(query.sql == "SELECT ?")
+    #expect(query.parameters.count == 1)
+    #expect(
+      query.parameters.first
+        == BigQueryValue(
+          value: .struct([
+            "payload": BigQueryValue(BigQueryJSON(text: "{\"a\":1}"))
+          ]),
+          type: .struct(["payload": .json])
+        )
+    )
+  }
+
+  @Test func shouldInitializeFromInterpolationWithArrayOfJSON() throws {
+    let query: Query = try "SELECT \([BigQueryJSON(text: "1"), BigQueryJSON(text: "2")])"
+    #expect(query.sql == "SELECT ?")
+    #expect(query.parameters.count == 1)
+    #expect(
+      query.parameters.first
+        == BigQueryValue(
+          value: .array([
+            BigQueryValue(BigQueryJSON(text: "1")),
+            BigQueryValue(BigQueryJSON(text: "2")),
+          ]),
+          type: .array(.json)
+        )
+    )
+  }
+
   @Test func shouldInitializeFromInterpolationWithQueryEncodable() throws {
 
     struct Struct: QueryEncodable {

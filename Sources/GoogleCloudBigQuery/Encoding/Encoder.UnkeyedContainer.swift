@@ -142,6 +142,10 @@ extension Encoder {
     }
 
     mutating func encode(_ value: String) throws {
+      if elementType == .json {
+        try write(value: Buffer(value: .actual(.init(BigQueryJSON(text: value)))))
+        return
+      }
       try write(value: Buffer(value: .actual(.init(value))))
     }
 

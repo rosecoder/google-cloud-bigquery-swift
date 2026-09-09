@@ -218,6 +218,14 @@ extension BigQuery {
           }
         }
     #endif
+    case .json(let value):
+      return .with {
+        if let value {
+          $0.value = .with {
+            $0.value = value
+          }
+        }
+      }
     case .array(let values):
       return .with {
         $0.arrayValues = values.map { encode(parameterValue: $0.storage) }
