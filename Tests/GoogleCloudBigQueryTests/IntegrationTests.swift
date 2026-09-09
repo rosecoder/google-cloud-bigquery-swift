@@ -137,8 +137,7 @@ struct IntegrationTests {
         into: LoadDestination(datasetID: "my_dataset", tableID: "my_table"),
         configuration: LoadJobConfiguration(
           sourceFormat: .csv,
-          writeDisposition: .truncate,
-          autodetect: true
+          writeDisposition: .truncate
         )
       )
     }

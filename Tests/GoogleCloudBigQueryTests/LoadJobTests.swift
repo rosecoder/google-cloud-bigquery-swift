@@ -11,7 +11,8 @@ import Testing
     #expect(config.sourceFormat == .csv)
     #expect(config.writeDisposition == .append)
     #expect(config.createDisposition == .ifNeeded)
-    #expect(config.autodetect == false)
+    #expect(config.autodetect == true)
+    #expect(config.schema == nil)
   }
 
   // MARK: - Custom initialization
@@ -20,13 +21,30 @@ import Testing
     let config = LoadJobConfiguration(
       sourceFormat: .parquet,
       writeDisposition: .truncate,
-      createDisposition: .never,
-      autodetect: true
+      createDisposition: .never
     )
     #expect(config.sourceFormat == .parquet)
     #expect(config.writeDisposition == .truncate)
     #expect(config.createDisposition == .never)
     #expect(config.autodetect == true)
+    #expect(config.schema == nil)
+  }
+
+  // MARK: - Initialization with an explicit schema
+
+  @Test func schemaInitializationDisablesAutodetect() {
+    let config = LoadJobConfiguration(
+      sourceFormat: .parquet,
+      schema: BigQuerySchema(fields: [
+        BigQuerySchema.Field(name: "a_string", type: .string, mode: .required)
+      ])
+    )
+    #expect(config.sourceFormat == .parquet)
+    #expect(config.autodetect == false)
+    #expect(config.schema?.fields.count == 1)
+    #expect(config.schema?.fields.first?.name == "a_string")
+    #expect(config.schema?.fields.first?.type == .string)
+    #expect(config.schema?.fields.first?.mode == .required)
   }
 
   // MARK: - SourceFormat protobuf string mappings
@@ -63,11 +81,11 @@ import Testing
     config.sourceFormat = .avro
     config.writeDisposition = .empty
     config.createDisposition = .never
-    config.autodetect = true
+    config.autodetect = false
     #expect(config.sourceFormat == .avro)
     #expect(config.writeDisposition == .empty)
     #expect(config.createDisposition == .never)
-    #expect(config.autodetect == true)
+    #expect(config.autodetect == false)
   }
 }
 
