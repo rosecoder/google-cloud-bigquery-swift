@@ -1,8 +1,9 @@
 import Foundation
 import GoogleCloudAuthTesting
-import GoogleCloudBigQuery
 import GoogleCloudServiceContext
 import Testing
+
+@testable import GoogleCloudBigQuery
 
 @Suite(.enabledIfAuthenticatedWithGoogleCloud)
 struct IntegrationTests {
@@ -97,6 +98,86 @@ struct IntegrationTests {
       let row = try #require(result.rows.first)
       #expect(row.payload == Payload(key: "someKey", value: 123))
       #expect(row.list == [1, 2, 3])
+    }
+  }
+
+  @Test func shouldWaitForQueryOutlivingTimeout() async throws {
+    try await withBigQuery { bigQuery in
+      struct Row: Decodable {
+
+        let count: Int
+      }
+
+      let result = try await bigQuery.query(
+        Query(
+          sql: """
+            SELECT COUNT(DISTINCT MOD((a * 1000 + b) * 7919, 1000003)) AS count
+            FROM UNNEST(GENERATE_ARRAY(0, 4999)) AS a, UNNEST(GENERATE_ARRAY(1, 1000)) AS b
+            """,
+          timeout: .milliseconds(1)
+        ),
+        as: Row.self
+      )
+      #expect(result.rows.count == 1)
+      #expect(result.totalRows == 1)
+      #expect(result.rows.first?.count == 1_000_003)
+    }
+  }
+
+  @Test func shouldThrowErrorOfQueryFailingAfterTimeout() async throws {
+    try await withBigQuery { bigQuery in
+      _ = await #expect(throws: (any Error).self) {
+        try await bigQuery.query(
+          Query(
+            sql: """
+              SELECT COUNT(DISTINCT IF(
+                a = 4999 AND b = 1000,
+                ERROR('Failed'),
+                MOD((a * 1000 + b) * 7919, 1000003)
+              ))
+              FROM UNNEST(GENERATE_ARRAY(0, 4999)) AS a, UNNEST(GENERATE_ARRAY(1, 1000)) AS b
+              """,
+            timeout: .milliseconds(1)
+          )
+        )
+      }
+    }
+  }
+
+  @Test func shouldNotRunQueryTwiceForSameRequestID() async throws {
+    try await withBigQuery { bigQuery in
+      struct Row: Decodable {
+
+        let count: Int
+      }
+
+      let projectID = try #require(await ServiceContext.topLevel.projectID)
+      let marker = UUID().uuidString
+      let requestID = UUID().uuidString
+
+      for _ in 0..<2 {
+        let affectedRows = try await bigQuery.query(
+          """
+          INSERT INTO `\(unsafe: projectID).my_dataset.my_table`
+          (a_string, a_int, a_timestamp, a_record, a_array)
+          VALUES (\(marker), 1, CURRENT_TIMESTAMP(), STRUCT(123 AS a_int), ["a"])
+          """,
+          location: nil,
+          requestID: requestID,
+          map: { $0.numDmlAffectedRows.value },
+          file: #fileID,
+          function: #function,
+          line: #line
+        )
+        #expect(affectedRows == 1)
+      }
+
+      let result = try await bigQuery.query(
+        "SELECT COUNT(*) AS count FROM `\(unsafe: projectID).my_dataset.my_table` WHERE a_string = \(marker)",
+        as: Row.self,
+        location: nil
+      )
+      #expect(result.rows.first?.count == 1)
     }
   }
 

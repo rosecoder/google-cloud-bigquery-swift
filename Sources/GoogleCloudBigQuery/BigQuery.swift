@@ -141,7 +141,8 @@ public final class BigQuery: BigQueryProtocol, Service {
 
   func request<Body: Message>(
     method: HTTPMethod,
-    path: String
+    path: String,
+    timeout: TimeAmount = .seconds(30)
   ) async throws -> Body {
     let accessToken = try await authorization.accessToken()
 
@@ -150,14 +151,15 @@ public final class BigQuery: BigQueryProtocol, Service {
     request.method = method
     request.headers.add(name: "Authorization", value: "Bearer " + accessToken)
 
-    let response = try await httpClient.execute(request, timeout: .seconds(30))
+    let response = try await httpClient.execute(request, timeout: timeout)
     return try await handle(response: response)
   }
 
   func request<Body: Message>(
     method: HTTPMethod,
     path: String,
-    body: some Message
+    body: some Message,
+    timeout: TimeAmount = .seconds(30)
   ) async throws -> Body {
     let accessToken = try await authorization.accessToken()
 
@@ -168,7 +170,7 @@ public final class BigQuery: BigQueryProtocol, Service {
     request.headers.add(name: "Content-Type", value: "application/json")
     request.body = .bytes(try body.jsonUTF8Data())
 
-    let response = try await httpClient.execute(request, timeout: .seconds(30))
+    let response = try await httpClient.execute(request, timeout: timeout)
     return try await handle(response: response)
   }
 
